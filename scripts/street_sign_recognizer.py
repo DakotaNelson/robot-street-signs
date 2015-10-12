@@ -25,6 +25,7 @@ class StreetSignRecognizer(object):
 
         self.use_slider = False
         self.use_mouse_hover = True
+        self.use_saver = False
 
         # # # # # # # # # # # # #
         # color params, in HSV  #
@@ -94,9 +95,16 @@ class StreetSignRecognizer(object):
             # binarize based on preset values
             self.binarized_image = cv2.inRange(self.hsv_image, self.color_bounds[self.COLOR][0], self.color_bounds[self.COLOR][1])
 
-        cv2.imshow('video_window', self.binarized_image)
-        cv2.imwrite("/tmp/bin_img_{0:0>4}.jpg".format(self.saveCounter), self.binarized_image)
-        self.saveCounter += 1
+        binaryGrid = thresh2binarygrid(self.binarized_image, gridsize=(15, 15), percentage=0.2)
+        pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid)
+        cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
+
+        cv2.imshow('video_window', self.cv_image)
+
+        if self.use_saver:        
+            cv2.imwrite("/tmp/bin_img_{0:0>4}.jpg".format(self.saveCounter), self.binarized_image)
+            self.saveCounter += 1
+
         cv2.waitKey(5)
 
     def find_object_center(self, binary_image):
@@ -134,6 +142,81 @@ class StreetSignRecognizer(object):
         r = rospy.Rate(5)
         while not rospy.is_shutdown():
             r.sleep()
+
+def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
+    """ Takes a thresholded image (i.e. from a cv2.inRange operation), divides
+    the image into a grid of gridsize; if a gridblock has percentage white pixels,
+    the gridblock will be "turned on"
+
+    Parameters
+    ----------
+    img: np.array, shape (image pixel height, image pixel width)
+        values should be between 0 - 255.
+
+    gridsize: tuple, default (10, 10)
+
+    percentage: float, between 0 - 1
+
+    Returns
+    -------
+    grid: binary grid of size gridsize
+    """
+    gridrows, gridcols = gridsize
+    m, n = img.shape
+    
+    # initialize binary grid
+    grid = np.zeros(gridsize)
+    
+    # define the size of each grid block
+    block_size = (m/gridrows, n/gridcols)
+
+    for i in range(gridrows):
+        for j in range(gridcols):
+            block = img[int(block_size[0]*i):int(block_size[0]*(i+1)), int(block_size[1]*j):int(block_size[1]*(j+1))]
+
+            # if percentage of the block was white (inRange)
+            threshold = block_size[0] * block_size[1] * 255 * percentage
+            if block.sum() >= threshold:
+                # turn the gridblock on
+                grid[i,j] = 1
+    
+    return grid
+
+def get_bbox_from_grid(img, grid):
+    """ Gets a bounding box in the form of (pt1, pt2), pairs of (x,y)
+    coordinates the define the lefttop and rightbottom of the bounding rectangle """
+
+    # get top
+    for i in range(grid.shape[0]):
+        if grid[i].sum() > 0:
+            top = i
+            break
+    
+    # get left
+    for j in range(grid.shape[1]):
+        if grid[:, j].sum() > 0:
+            left = j
+            break
+        
+    # get bottom
+    for i in range(grid.shape[0] - 1, -1, -1):
+        if grid[i].sum() > 0:
+            bottom = i
+            break
+            
+    # get right
+    for j in range(grid.shape[1] - 1, -1, -1):
+        if grid[:, j].sum() > 0:
+            right = j
+            break
+    
+    # (x, y)
+    pt1 = (img.shape[1]/grid.shape[1]*left, img.shape[0]/grid.shape[0]*top)
+    
+    # (right+1) and (bottom+1) cuz grid only represents the left hand corner of a block
+    pt2 = (img.shape[1]/grid.shape[1]*(right+1), img.shape[0]/grid.shape[0]*(bottom+1))
+    
+    return pt1, pt2
 
 if __name__ == '__main__':
     node = StreetSignRecognizer("/camera/image_raw")
