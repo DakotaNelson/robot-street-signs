@@ -13,7 +13,7 @@ class StreetSignRecognizer(object):
     """ This robot should recognize street signs """
 
     def __init__(self, image_topic):
-        """ Initialize the ball tracker """
+        """ Initialize the street sign reocgnizer """
         rospy.init_node('street_sign_recognizer')
         self.cv_image = None                        # the latest image from the camera
         self.bridge = CvBridge()                    # used to convert ROS messages to OpenCV
