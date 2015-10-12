@@ -17,6 +17,7 @@ class StreetSignRecognizer(object):
         rospy.init_node('street_sign_recognizer')
         self.cv_image = None                        # the latest image from the camera
         self.bridge = CvBridge()                    # used to convert ROS messages to OpenCV
+        self.saveCounter = 0 # how many images we've saved to disk
 
         rospy.Subscriber(image_topic, Image, self.process_image)
         cv2.namedWindow('video_window')
@@ -26,9 +27,9 @@ class StreetSignRecognizer(object):
         self.use_mouse_hover = True
 
         # # # # # # # # # # # # #
-        # color params, in HSV  # 
+        # color params, in HSV  #
         # # # # # # # # # # # # #
-        
+
         self.COLOR = "yellow"                       # which default color we binarize based on
         self.color_bounds = {}
 
@@ -42,7 +43,7 @@ class StreetSignRecognizer(object):
               np.array([23,175,130])                # min
             , np.array([32,255,255])                # max
         )
-        
+
         if self.use_mouse_hover:
             # when mouse hovers over video window
             cv2.setMouseCallback('video_window', self.process_mouse_event)
@@ -59,7 +60,7 @@ class StreetSignRecognizer(object):
             cv2.createTrackbar('V ub', 'threshold_image', 0, 255, self.set_v_ub)
 
     # # # # # # # # # #
-    # color callbacks # 
+    # color callbacks #
     # # # # # # # # # #
 
     def set_h_lb(self, val):
@@ -94,6 +95,8 @@ class StreetSignRecognizer(object):
             self.binarized_image = cv2.inRange(self.hsv_image, self.color_bounds[self.COLOR][0], self.color_bounds[self.COLOR][1])
 
         cv2.imshow('video_window', self.binarized_image)
+        cv2.imwrite("/tmp/bin_img_{0:0>4}.jpg".format(self.saveCounter), self.binarized_image)
+        self.saveCounter += 1
         cv2.waitKey(5)
 
     def find_object_center(self, binary_image):
@@ -107,7 +110,7 @@ class StreetSignRecognizer(object):
         """ Process mouse events so that you can see the color values associated
             with a particular pixel in the camera images """
         image_info_window = 255*np.ones((500,500,3))
-        
+
         # show hsv values
         cv2.putText(image_info_window,
                     'Color (h=%d,s=%d,v=%d)' % (self.hsv_image[y,x,0], self.hsv_image[y,x,1], self.hsv_image[y,x,2]),
@@ -116,7 +119,7 @@ class StreetSignRecognizer(object):
                     1,
                     (0,0,0))
 
-        # show bgr values 
+        # show bgr values
         cv2.putText(image_info_window,
                     'Color (b=%d,g=%d,r=%d)' % (self.cv_image[y,x,0], self.cv_image[y,x,1], self.cv_image[y,x,2]),
                     (5,100),
