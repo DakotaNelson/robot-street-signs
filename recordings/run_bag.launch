@@ -1,0 +1,5 @@
+<launch>
+  <arg name="bag"/>
+  <node name="repub" pkg="image_transport" type="republish" args="in:=/camera/image_raw compressed out:=/camera/image_raw raw"/>
+  <node name="playback" pkg="rosbag" type="play" args="$(find robot_street_signs)/recordings/$(arg bag)" output="screen"/>
+</launch>
