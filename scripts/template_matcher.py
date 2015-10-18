@@ -54,7 +54,6 @@ class TemplateMatcher(object):
         self.flann = cv2.FlannBasedMatcher(self.index_params, self.search_params)
         for k, filename in images.iteritems():
             self.signs[k] = cv2.imread(filename,0)
-            ipdb.set_trace()
             self.kps[k], self.descs[k] = self.sift.detectAndCompute(self.signs[k],None)
 
     def predict(self, img, norm=0):
@@ -178,8 +177,12 @@ class TemplateMatcher(object):
         return out
 
 if __name__ == '__main__':
-    scene_img = cv2.imread('../images/bin_img_0100.jpg')
-    images = {"left": "../images/leftturn_box.small.png", "right": "../images/rightturn_box.small.png", "uturn": "../images/uturn_box.small.png"}
+    scene_img = cv2.imread('../images/bin_img_0100.jpg', 0)
+    images = {
+        "left": '../images/leftturn_box_small.png',
+        "right": '../images/rightturn_box_small.png',
+        "uturn": '../images/uturn_box_small.png'
+        }
     tm = TemplateMatcher(images)
     pred = tm.predict(scene_img)
     print pred
