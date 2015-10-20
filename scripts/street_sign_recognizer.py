@@ -116,10 +116,7 @@ class StreetSignRecognizer(object):
             # get the bounding box crop to be processed
             cropped_sign = self.cv_image[pt1[1]:pt2[1], pt1[0]:pt2[0]]
             cropped_sign_gray = cv2.cvtColor(cropped_sign, cv2.COLOR_BGR2GRAY)
-            prediction = self.template_matcher.predict(
-                cropped_sign_gray,
-                norm=1  # l2 norm better performs
-            )
+            prediction = self.template_matcher.predict(cropped_sign_gray)
 
             print prediction
 

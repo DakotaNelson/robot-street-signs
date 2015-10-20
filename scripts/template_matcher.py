@@ -17,9 +17,8 @@ def compare_images(img1, img2):
     img2 = normalize(img2)
     # calculate the difference and its norms
     diff = img1 - img2  # elementwise for scipy arrays
-    m_norm = sum(abs(diff))  # Manhattan norm
     z_norm = norm(diff.ravel(), 0)  # Zero norm
-    return (m_norm, z_norm)
+    return z_norm
 
 
 def normalize(arr):
@@ -56,19 +55,23 @@ class TemplateMatcher(object):
             self.signs[k] = cv2.imread(filename,0)
             self.kps[k], self.descs[k] = self.sift.detectAndCompute(self.signs[k],None)
 
-    def predict(self, img, norm=1):
+    def predict(self, img):
         """
-        Uses gather predictions to get visual diffs of the image to each template and then selects and returns the most likely one
-        norm: either 0 or 1, where 0 is 'manhattan norm' and 1 is 'L2 norm'
+        Uses gather predictions to get visual diffs of the image to each template
+        returns a dictionary, keys being signs, values being confidences
         """
         visual_diff = self._gather_predictions(img)
-        likely = None
-        lowest = np.inf
-        for k in visual_diff.keys():
-            if visual_diff[k][norm] < lowest:
-                lowest = visual_diff[k][norm]
-                likely = k
-        return likely
+        
+        # inverse - higher confidences for smaller visual differences
+        for k in visual_diff:
+            visual_diff[k] = 1.0 / visual_diff[k]
+
+        # normalize confidences to sum to one
+        total = sum(visual_diff.values())
+        for k in visual_diff:
+            visual_diff[k] /= total
+
+        return visual_diff
 
     def _gather_predictions(self, img):
         """
