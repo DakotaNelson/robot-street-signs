@@ -9,6 +9,8 @@ from cv_bridge import CvBridge
 import cv2
 import numpy as np
 
+from template_matcher import TemplateMatcher
+
 class StreetSignRecognizer(object):
     """ This robot should recognize street signs """
 
@@ -19,13 +21,22 @@ class StreetSignRecognizer(object):
         self.bridge = CvBridge()                    # used to convert ROS messages to OpenCV
         self.saveCounter = 0 # how many images we've saved to disk
 
+        images = {
+            "left": '../images/leftturn_box_small.png',
+            "right": '../images/rightturn_box_small.png',
+            "uturn": '../images/uturn_box_small.png'
+        }
+        print "Loading TemplateMatcher"
+        self.template_matcher = TemplateMatcher(images)
+
         rospy.Subscriber(image_topic, Image, self.process_image)
         cv2.namedWindow('video_window')
 
 
         self.use_slider = False
         self.use_mouse_hover = True
-        self.use_saver = False
+        self.use_saver = True
+        self.use_predict = False
 
         # # # # # # # # # # # # #
         # color params, in HSV  #
@@ -97,12 +108,22 @@ class StreetSignRecognizer(object):
 
         binaryGrid = thresh2binarygrid(self.binarized_image, gridsize=(15, 15), percentage=0.2)
         pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid)
-        cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
+        
+        # draw bounding box rectangle
+        # cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
+
+        if self.use_predict:
+            # get the bounding box crop to be processed
+            cropped_sign = self.cv_image[pt1[1]:pt2[1], pt1[0]:pt2[0]]
+            cropped_sign_gray = cv2.cvtColor(cropped_sign, cv2.COLOR_BGR2GRAY)
+            prediction = self.template_matcher.predict(cropped_sign_gray)
+
+            print prediction
 
         cv2.imshow('video_window', self.cv_image)
 
         if self.use_saver:        
-            cv2.imwrite("/tmp/bin_img_{0:0>4}.jpg".format(self.saveCounter), self.binarized_image)
+            cv2.imwrite("/tmp/bin_img_{0:0>4}.jpg".format(self.saveCounter), self.cv_image)
             self.saveCounter += 1
 
         cv2.waitKey(5)
