@@ -32,6 +32,7 @@ class StreetSignRecognizer(object):
         rospy.Subscriber(image_topic, Image, self.process_image)
         cv2.namedWindow('video_window')
 
+        self.running_predictions = {"left": 0, "right": 0, "uturn": 0}
 
         self.use_slider = False
         self.use_mouse_hover = False
@@ -118,7 +119,10 @@ class StreetSignRecognizer(object):
             cropped_sign_gray = cv2.cvtColor(cropped_sign, cv2.COLOR_BGR2GRAY)
             prediction = self.template_matcher.predict(cropped_sign_gray)
 
-            print prediction
+            for k in prediction:
+                self.running_predictions[k] += prediction[k]
+
+            print self.running_predictions
 
         cv2.imshow('video_window', self.cv_image)
 
