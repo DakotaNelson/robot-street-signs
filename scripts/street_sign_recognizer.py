@@ -34,9 +34,9 @@ class StreetSignRecognizer(object):
 
 
         self.use_slider = False
-        self.use_mouse_hover = True
-        self.use_saver = True
-        self.use_predict = False
+        self.use_mouse_hover = False
+        self.use_saver = False
+        self.use_predict = True
 
         # # # # # # # # # # # # #
         # color params, in HSV  #
@@ -106,17 +106,20 @@ class StreetSignRecognizer(object):
             # binarize based on preset values
             self.binarized_image = cv2.inRange(self.hsv_image, self.color_bounds[self.COLOR][0], self.color_bounds[self.COLOR][1])
 
-        binaryGrid = thresh2binarygrid(self.binarized_image, gridsize=(15, 15), percentage=0.2)
-        pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid)
+        binaryGrid = thresh2binarygrid(self.binarized_image, gridsize=(20, 20), percentage=0.2)
+        pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid, pad=1)
         
         # draw bounding box rectangle
-        # cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
+        cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
 
         if self.use_predict:
             # get the bounding box crop to be processed
             cropped_sign = self.cv_image[pt1[1]:pt2[1], pt1[0]:pt2[0]]
             cropped_sign_gray = cv2.cvtColor(cropped_sign, cv2.COLOR_BGR2GRAY)
-            prediction = self.template_matcher.predict(cropped_sign_gray)
+            prediction = self.template_matcher.predict(
+                cropped_sign_gray,
+                norm=1  # l2 norm better performs
+            )
 
             print prediction
 
@@ -203,9 +206,10 @@ def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
     
     return grid
 
-def get_bbox_from_grid(img, grid):
+def get_bbox_from_grid(img, grid, pad=0):
     """ Gets a bounding box in the form of (pt1, pt2), pairs of (x,y)
     coordinates the define the lefttop and rightbottom of the bounding rectangle """
+
 
     # get top
     for i in range(grid.shape[0]):
@@ -230,7 +234,14 @@ def get_bbox_from_grid(img, grid):
         if grid[:, j].sum() > 0:
             right = j
             break
-    
+
+    # make bbox a little bigger
+    # this will break if bounding box is taken near the ends of the image
+    top -= pad
+    left -= pad
+    bottom += pad
+    right += pad
+
     # (x, y)
     pt1 = (img.shape[1]/grid.shape[1]*left, img.shape[0]/grid.shape[0]*top)
     

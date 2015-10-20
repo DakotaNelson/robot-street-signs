@@ -56,7 +56,7 @@ class TemplateMatcher(object):
             self.signs[k] = cv2.imread(filename,0)
             self.kps[k], self.descs[k] = self.sift.detectAndCompute(self.signs[k],None)
 
-    def predict(self, img, norm=0):
+    def predict(self, img, norm=1):
         """
         Uses gather predictions to get visual diffs of the image to each template and then selects and returns the most likely one
         norm: either 0 or 1, where 0 is 'manhattan norm' and 1 is 'L2 norm'
@@ -98,7 +98,13 @@ class TemplateMatcher(object):
         dst_pts = np.float32([self.kps[k][match.trainIdx].pt for match in good]).reshape(-1,1,2)
         M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self.ransac_thresh)
         img_T = cv2.warpPerspective(img, M, self.signs[k].shape[::-1])
-        return compare_images(img_T, self.signs[k])
+        visual_diff = compare_images(img_T, self.signs[k])
+        # plt.imshow(img_T)
+        # plt.title(k)
+        # plt.xlabel(visual_diff[0])
+        # plt.ylabel(visual_diff[1])
+        # plt.show()
+        return visual_diff
 
     @staticmethod
     def drawMatches(img1, kp1, img2, kp2, matches, masks):
@@ -177,12 +183,30 @@ class TemplateMatcher(object):
         return out
 
 if __name__ == '__main__':
-    scene_img = cv2.imread('../images/bin_img_0100.jpg', 0)
+    # scene_img = cv2.imread('../images/bin_img_0100.jpg', 0)
+    # images = {
+    #     "left": '../images/leftturn_box_small.png',
+    #     "right": '../images/rightturn_box_small.png',
+    #     "uturn": '../images/uturn_box_small.png'
+    #     }
+    # tm = TemplateMatcher(images)
+    # pred = tm.predict(scene_img)
+    # print pred
     images = {
         "left": '../images/leftturn_box_small.png',
         "right": '../images/rightturn_box_small.png',
         "uturn": '../images/uturn_box_small.png'
         }
     tm = TemplateMatcher(images)
-    pred = tm.predict(scene_img)
-    print pred
+
+    scenes = [
+        "../images/uturn_scene.jpg",
+        "../images/leftturn_scene.jpg",
+        "../images/rightturn_scene.jpg"
+    ]
+    for filename in scenes:
+        scene_img = cv2.imread(filename, 0)
+        pred = tm.predict(scene_img)
+        print pred
+        # plt.imshow(tm.img_T)
+        # plt.show()
