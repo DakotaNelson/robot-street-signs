@@ -1,0 +1,7 @@
+# Run these commands to get a simulator spun up with the Neato running a full nav stack.
+
+roslaunch neato_simulator neato_playground.launch
+rosrun map_server map_server `rospack find neato_2dnav`/maps/playground_smaller.yaml
+roslaunch neato_2dnav amcl_builtin.launch map_file:=`rospack find neato_2dnav`/maps/playground_smaller.yaml
+
+# would really like to have hector_mapping instead of map_server to generate map dynamically
