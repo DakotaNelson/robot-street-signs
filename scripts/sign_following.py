@@ -20,19 +20,19 @@ class StateMachine():
         self.res = 'forward'
         self.data = data
         self.publishGoal = publisher
-        self.stop = False
+        self.end = False
 
         # if a function returns [this string], execute [this function]
         self.transitions = {
                   'rturn': self.rturn,
-                  #'lturn': self.lturn,
-                  #'uturn': self.uturn,
+                  'lturn': self.lturn,
+                  'uturn': self.uturn,
                   'forward': self.forward,
                   'stop': self.stop
                 }
 
     def run(self):
-        while not self.stop:
+        while not self.end:
             res = self.transitions[self.res]()
             self.res = res
             # the robot should 'latch' slightly once it's made a decision
@@ -43,7 +43,8 @@ class StateMachine():
     def forward(self):
         print("The sign says: {}".format(self.data['sign']))
 
-        self.publishGoal(0,0,0)
+        # publish a goal 3m ahead
+        self.publishGoal(3,0,0)
 
         if self.data['sign'] and self.data['sign'] == 'rturn':
             return 'rturn'
@@ -52,27 +53,46 @@ class StateMachine():
         elif self.data['sign'] == 'uturn':
             return 'uturn'
         elif self.data['sign'] == 'stop':
+            print("forward --> stop")
             return 'stop'
         else:
             return 'forward'
 
     def rturn(self):
-        sleep(2)
+        # publish a goal 1m ahead and 3m to the right
+        self.publishGoal(1,-3,0)
 
-        """if self.data.sign == 'rturn':
-            self.certainty += 1
-        else:
-            self.certainty -= 1
-
-        if self.certainty > 3:"""
         if self.data['sign'] == 'rturn':
             return 'rturn'
         else:
             return 'forward'
 
+    def lturn(self):
+        # publish a goal 1m ahead and 3m to the left
+        self.publishGoal(1,3,0)
+
+        if self.data['sign'] == 'lturn':
+            return 'lturn'
+        else:
+            return 'forward'
+
+    def uturn(self):
+        # publish a goal 3m behind us
+        self.publishGoal(-3,0,0)
+
+        if self.data['sign'] == 'uturn':
+            return 'uturn'
+        else:
+            return 'forward'
+
     def stop(self):
         # stop the robbit
-        pass
+        # publish a goal on top of us
+        self.publishGoal(0,0,0)
+
+        # stay stopped forever
+        print("stop --> stop")
+        return 'stop'
 
 
 ###### Node Class ######
@@ -97,6 +117,8 @@ class StreetSignFollower(object):
 
     @staticmethod
     def publishGoal(x=0.0, y=0.0, z=0.0):
+        print("Publishing goal at ({},{},{})".format(x,y,z))
+
         """point_msg = Point(x, y, z)
         quat_msg = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         pose_msg = Pose(position=point_msg, orientation=quat_msg)
@@ -107,8 +129,6 @@ class StreetSignFollower(object):
         pose_stamped = PoseStamped(header=header_msg, pose=pose_msg)
 
         self.pub.Publish(pose_stamped)"""
-
-        print("IT WORKS")
 
     def run(self):
         """ The main run loop - create a state machine, and set it off """
@@ -127,7 +147,7 @@ class StreetSignFollower(object):
         rospy.spin()
 
         # stop the state machine
-        self.sm.stop = True
+        self.sm.end = True
 
         # Block until everything is shut down
         smach_thread.join()
