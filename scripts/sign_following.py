@@ -98,16 +98,19 @@ class StreetSignFollower(object):
 
         self.sm.userdata.sign = msg
 
-        """point_msg = Point(x=1.0, y=2.0, z=0.0)
+    def publishGoal(x=0.0, y=0.0, z=0.0):
+        """point_msg = Point(x, y, z)
         quat_msg = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         pose_msg = Pose(position=point_msg, orientation=quat_msg)
 
         header_msg = Header(stamp=rospy.Time.now(),
-                                    frame_id=0)
+                                    frame_id='base_link')
 
         pose_stamped = PoseStamped(header=header_msg, pose=pose_msg)
 
         self.pub.Publish(pose_stamped)"""
+
+        print("IT WORKS")
 
     def run(self):
         """ The main run loop - create a state machine, and set it off """
