@@ -14,66 +14,63 @@ import rospy
 
 ###### State Machine States ######
 
-class Forward(smach.State):
-    #def __init__(self, outcomes=['r_turn', 'l_turn', 'u_turn', 'stop']):
-    def __init__(self, outcomes=['r_turn', 'forward', 'preempted']):
+class StateMachine():
+    def __init__(self, publisher, data={}):
         # state initialization goes here
-        smach.State.__init__(self, outcomes=outcomes,
-                             input_keys = ['sign'])
+        self.res = 'forward'
+        self.data = data
+        self.publishGoal = publisher
+        self.stop = False
 
-    def execute(self, data):
-        # Check for preempt
-        if self.preempt_requested():
-            self.service_preempt()
-            return 'preempted'
+        # if a function returns [this string], execute [this function]
+        self.transitions = {
+                  'rturn': self.rturn,
+                  #'lturn': self.lturn,
+                  #'uturn': self.uturn,
+                  'forward': self.forward,
+                  'stop': self.stop
+                }
 
-        if data.sign:
-            print(data.sign.data)
-            print(data.sign.data == 'rturn')
+    def run(self):
+        while not self.stop:
+            res = self.transitions[self.res]()
+            self.res = res
+            # the robot should 'latch' slightly once it's made a decision
+            sleep(.5)
 
-        if data.sign and data.sign.data == 'rturn':
-            return 'r_turn'
+    """ Each function is a different state. """
+
+    def forward(self):
+        print("The sign says: {}".format(self.data['sign']))
+
+        self.publishGoal(0,0,0)
+
+        if self.data['sign'] and self.data['sign'] == 'rturn':
+            return 'rturn'
+        elif self.data['sign'] == 'lturn':
+            return 'lturn'
+        elif self.data['sign'] == 'uturn':
+            return 'uturn'
+        elif self.data['sign'] == 'stop':
+            return 'stop'
         else:
             return 'forward'
-        """elif sign == 'lturn':
-            return 'l_turn'
-        elif sign == 'uturn':
-            return 'u_turn'
-        elif sign == 'stop':
-            return 'stop'"""
 
-class R_turn(smach.State):
-    def __init__(self, outcomes=['forward', 'preempted']):
-        # state initialization goes here
-        smach.State.__init__(self, outcomes=outcomes,
-                             input_keys = ['sign'])
-        self.certainty = 0
+    def rturn(self):
+        sleep(2)
 
-    def execute(self, data):
-        # Check for preempt
-        if self.preempt_requested():
-            self.service_preempt()
-            return 'preempted'
-
-        sleep(5)
-
-        if data.sign == 'rturn':
+        """if self.data.sign == 'rturn':
             self.certainty += 1
         else:
             self.certainty -= 1
 
-        if self.certainty > 3:
-            return 'r_turn'
+        if self.certainty > 3:"""
+        if self.data['sign'] == 'rturn':
+            return 'rturn'
         else:
             return 'forward'
 
-class Stop(smach.State):
-    def __init__(self, outcomes=[]):
-        # state initialization goes here
-        smach.State.__init__(self, outcomes=outcomes,
-                             input_keys = ['sign'])
-
-    def execute(self, data):
+    def stop(self):
         # stop the robbit
         pass
 
@@ -96,8 +93,9 @@ class StreetSignFollower(object):
     def process_sign(self, msg):
         """ Process sign predictions, use them to transition the state machine. """
 
-        self.sm.userdata.sign = msg
+        self.sm.data['sign'] = msg.data
 
+    @staticmethod
     def publishGoal(x=0.0, y=0.0, z=0.0):
         """point_msg = Point(x, y, z)
         quat_msg = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
@@ -115,43 +113,24 @@ class StreetSignFollower(object):
     def run(self):
         """ The main run loop - create a state machine, and set it off """
 
-        # Create a SMACH state machine
-        self.sm = smach.StateMachine(outcomes=[])
+        # Create a state machine
+        self.sm = StateMachine(self.publishGoal, {'sign': None})
 
-        self.sm.userdata.sign = None
-
-        # Open the container
-        with self.sm:
-            # Add states to the container
-            smach.StateMachine.add('forward', Forward(),
-                                   transitions={'r_turn':'r_turn',
-                                   'forward':'forward',
-                                   'preempted': 'stop'})
-
-            smach.StateMachine.add('r_turn', R_turn(),
-                                   transitions={'forward':'forward',
-                                   'preempted': 'stop'})
-
-            smach.StateMachine.add('stop', Stop(),
-                                   transitions={})
-
-        # Execute SMACH plan
+        # Execute the machine
         # threading required for control-C-ability
 
         # Create a thread to execute the smach container
-        smach_thread = threading.Thread(target=self.sm.execute)
+        smach_thread = threading.Thread(target=self.sm.run)
         smach_thread.start()
 
         # Wait for ctrl-c
         rospy.spin()
 
-        # Request the container to preempt
-        self.sm.request_preempt()
+        # stop the state machine
+        self.sm.stop = True
 
-        # Block until everything is preempted
-        # (you could do something more complicated to get the execution outcome if you want it)
+        # Block until everything is shut down
         smach_thread.join()
-        #outcome = sm.execute()
 
 if __name__ == '__main__':
     node = StreetSignFollower("/sign_predictions")
