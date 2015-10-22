@@ -6,6 +6,7 @@
 from geometry_msgs.msg import PoseStamped, Pose, Quaternion, Point
 from std_msgs.msg import Header
 from std_msgs.msg import String
+from time import sleep
 import threading
 import smach
 import smach_ros
@@ -17,16 +18,20 @@ class Forward(smach.State):
     #def __init__(self, outcomes=['r_turn', 'l_turn', 'u_turn', 'stop']):
     def __init__(self, outcomes=['r_turn', 'forward', 'preempted']):
         # state initialization goes here
-        smach.State.__init__(self, outcomes=outcomes)
-        pass
+        smach.State.__init__(self, outcomes=outcomes,
+                             input_keys = ['sign'])
 
-    def execute(self, sign):
+    def execute(self, data):
         # Check for preempt
         if self.preempt_requested():
             self.service_preempt()
             return 'preempted'
 
-        if sign == 'rturn':
+        if data.sign:
+            print(data.sign.data)
+            print(data.sign.data == 'rturn')
+
+        if data.sign and data.sign.data == 'rturn':
             return 'r_turn'
         else:
             return 'forward'
@@ -40,16 +45,19 @@ class Forward(smach.State):
 class R_turn(smach.State):
     def __init__(self, outcomes=['forward', 'preempted']):
         # state initialization goes here
-        smach.State.__init__(self, outcomes=outcomes)
+        smach.State.__init__(self, outcomes=outcomes,
+                             input_keys = ['sign'])
         self.certainty = 0
 
-    def execute(self, sign):
+    def execute(self, data):
         # Check for preempt
         if self.preempt_requested():
             self.service_preempt()
             return 'preempted'
 
-        if sign == 'rturn':
+        sleep(5)
+
+        if data.sign == 'rturn':
             self.certainty += 1
         else:
             self.certainty -= 1
@@ -62,9 +70,10 @@ class R_turn(smach.State):
 class Stop(smach.State):
     def __init__(self, outcomes=[]):
         # state initialization goes here
-        smach.State.__init__(self, outcomes=outcomes)
+        smach.State.__init__(self, outcomes=outcomes,
+                             input_keys = ['sign'])
 
-    def execute(self, sign):
+    def execute(self, data):
         # stop the robbit
         pass
 
@@ -87,7 +96,9 @@ class StreetSignFollower(object):
     def process_sign(self, msg):
         """ Process sign predictions, use them to transition the state machine. """
 
-        point_msg = Point(x=1.0, y=2.0, z=0.0)
+        self.sm.userdata.sign = msg
+
+        """point_msg = Point(x=1.0, y=2.0, z=0.0)
         quat_msg = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         pose_msg = Pose(position=point_msg, orientation=quat_msg)
 
@@ -96,43 +107,43 @@ class StreetSignFollower(object):
 
         pose_stamped = PoseStamped(header=header_msg, pose=pose_msg)
 
-        self.pub.Publish(pose_stamped)
+        self.pub.Publish(pose_stamped)"""
 
     def run(self):
         """ The main run loop - create a state machine, and set it off """
-        """r = rospy.Rate(5)
-        while not rospy.is_shutdown():
-            r.sleep()"""
 
         # Create a SMACH state machine
-        sm = smach.StateMachine(outcomes=[])
+        self.sm = smach.StateMachine(outcomes=[])
+
+        self.sm.userdata.sign = None
 
         # Open the container
-        with sm:
+        with self.sm:
             # Add states to the container
-            smach.StateMachine.add('Forward', Forward(),
-                                   transitions={'r_turn':'R_turn',
-                                   'forward':'Forward',
-                                   'preempted': 'Stop'})
-            smach.StateMachine.add('R_turn', R_turn(),
-                                   transitions={'forward':'Forward',
-                                   'preempted': 'Stop'})
+            smach.StateMachine.add('forward', Forward(),
+                                   transitions={'r_turn':'r_turn',
+                                   'forward':'forward',
+                                   'preempted': 'stop'})
 
-            smach.StateMachine.add('Stop', Stop(),
+            smach.StateMachine.add('r_turn', R_turn(),
+                                   transitions={'forward':'forward',
+                                   'preempted': 'stop'})
+
+            smach.StateMachine.add('stop', Stop(),
                                    transitions={})
 
         # Execute SMACH plan
         # threading required for control-C-ability
 
         # Create a thread to execute the smach container
-        smach_thread = threading.Thread(target=sm.execute)
+        smach_thread = threading.Thread(target=self.sm.execute)
         smach_thread.start()
 
         # Wait for ctrl-c
         rospy.spin()
 
         # Request the container to preempt
-        sm.request_preempt()
+        self.sm.request_preempt()
 
         # Block until everything is preempted
         # (you could do something more complicated to get the execution outcome if you want it)
