@@ -63,14 +63,17 @@ class TemplateMatcher(object):
         visual_diff = self._gather_predictions(img)
         
         # inverse - higher confidences for smaller visual differences
-        for k in visual_diff:
-            visual_diff[k] = 1.0 / visual_diff[k]
+        if visual_diff:
+            for k in visual_diff:
+                visual_diff[k] = 1.0 / visual_diff[k]
 
-        # normalize confidences to sum to one
-        total = sum(visual_diff.values())
-        for k in visual_diff:
-            visual_diff[k] /= total
-
+            # normalize confidences to sum to one
+            total = sum(visual_diff.values())
+            for k in visual_diff:
+                visual_diff[k] /= total
+        else:
+            visual_diff = {k: 0 for k in self.signs.keys()}
+        
         return visual_diff
 
     def _gather_predictions(self, img):
@@ -78,9 +81,14 @@ class TemplateMatcher(object):
         Iteratively call _compute_prediction to put together comparisons of one image with each template
         """
         visual_diff = {}
-        kp, des = self.sift.detectAndCompute(img,None)
-        for k in self.signs.keys():
-            visual_diff[k] = self._compute_prediction(k, img, kp, des)
+        try:
+            kp, des = self.sift.detectAndCompute(img,None)
+            for k in self.signs.keys():
+                visual_diff[k] = self._compute_prediction(k, img, kp, des)
+        except:
+            # could not find a homography, because the cropped image is bad.
+            return None
+
         return visual_diff
 
 
@@ -102,6 +110,8 @@ class TemplateMatcher(object):
         M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self.ransac_thresh)
         img_T = cv2.warpPerspective(img, M, self.signs[k].shape[::-1])
         visual_diff = compare_images(img_T, self.signs[k])
+        
+        # artifacts of debugging
         # plt.imshow(img_T)
         # plt.title(k)
         # plt.xlabel(visual_diff[0])

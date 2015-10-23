@@ -125,7 +125,7 @@ class StreetSignRecognizer(object):
 
         binaryGrid = thresh2binarygrid(self.binarized_image, gridsize=(20, 20), percentage=0.2)
         pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid, pad=1)
-        
+
         # draw bounding box rectangle
         cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
 
@@ -265,6 +265,16 @@ def get_bbox_from_grid(img, grid, pad=0):
     left -= pad
     bottom += pad
     right += pad
+
+    # bounds should not be outside of the grid area
+    if top < 0:
+        top = 0
+    if left < 0:
+        left = 0
+    if bottom > grid.shape[0]:
+        bottom = grid.shape[0]
+    if right > grid.shape[1]:
+        right = grid.shape[1]
 
     # (x, y)
     pt1 = (img.shape[1]/grid.shape[1]*left, img.shape[0]/grid.shape[0]*top)
