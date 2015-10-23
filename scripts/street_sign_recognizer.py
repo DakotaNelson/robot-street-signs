@@ -6,13 +6,24 @@
 import rospy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+from std_msgs.msg import String
 import cv2
 import numpy as np
+import os
 
 from template_matcher import TemplateMatcher
 
+
 class StreetSignRecognizer(object):
     """ This robot should recognize street signs """
+
+
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+    template_images = {
+        "left":  os.path.join(curr_dir, '../images/leftturn_box_small.png'),
+        "right": os.path.join(curr_dir, '../images/rightturn_box_small.png'),
+        "uturn": os.path.join(curr_dir, '../images/uturn_box_small.png')
+    }
 
     def __init__(self, image_topic):
         """ Initialize the street sign reocgnizer """
@@ -21,23 +32,28 @@ class StreetSignRecognizer(object):
         self.bridge = CvBridge()                    # used to convert ROS messages to OpenCV
         self.saveCounter = 0 # how many images we've saved to disk
 
-        images = {
-            "left": '../images/leftturn_box_small.png',
-            "right": '../images/rightturn_box_small.png',
-            "uturn": '../images/uturn_box_small.png'
-        }
-        print "Loading TemplateMatcher"
-        self.template_matcher = TemplateMatcher(images)
 
+        print "Loading TemplateMatcher"
+        self.template_matcher = TemplateMatcher(self.template_images)
+
+        self.pub = rospy.Publisher('predicted_sign', String, queue_size=1)
         rospy.Subscriber(image_topic, Image, self.process_image)
         cv2.namedWindow('video_window')
 
         self.running_predictions = {"left": 0, "right": 0, "uturn": 0}
 
+        self.sign_pub_mappings = {
+            "uturn": 1,
+            "left": 2,
+            "right": 3
+        }
+
         self.use_slider = False
         self.use_mouse_hover = False
         self.use_saver = False
         self.use_predict = True
+
+        self.decision_threshold = 50
 
         # # # # # # # # # # # # #
         # color params, in HSV  #
@@ -109,7 +125,7 @@ class StreetSignRecognizer(object):
 
         binaryGrid = thresh2binarygrid(self.binarized_image, gridsize=(20, 20), percentage=0.2)
         pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid, pad=1)
-        
+
         # draw bounding box rectangle
         cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
 
@@ -122,7 +138,7 @@ class StreetSignRecognizer(object):
             for k in prediction:
                 self.running_predictions[k] += prediction[k]
 
-            print self.running_predictions
+            # print self.running_predictions
 
         cv2.imshow('video_window', self.cv_image)
 
@@ -162,10 +178,17 @@ class StreetSignRecognizer(object):
         cv2.imshow('image_info', image_info_window)
         cv2.waitKey(5)
 
+
     def run(self):
         """ The main run loop, in this node it doesn't do anything """
         r = rospy.Rate(5)
         while not rospy.is_shutdown():
+            if sum(self.running_predictions.values()) > self.decision_threshold:
+                # find the max
+                final_pred = max(self.running_predictions.iterkeys(), key=(lambda key: self.running_predictions[key]))
+                self.pub.publish(final_pred)
+                self.running_predictions = {"left": 0, "right": 0, "uturn": 0}
+                
             r.sleep()
 
 def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
@@ -242,6 +265,16 @@ def get_bbox_from_grid(img, grid, pad=0):
     left -= pad
     bottom += pad
     right += pad
+
+    # bounds should not be outside of the grid area
+    if top < 0:
+        top = 0
+    if left < 0:
+        left = 0
+    if bottom > grid.shape[0]:
+        bottom = grid.shape[0]
+    if right > grid.shape[1]:
+        right = grid.shape[1]
 
     # (x, y)
     pt1 = (img.shape[1]/grid.shape[1]*left, img.shape[0]/grid.shape[0]*top)
