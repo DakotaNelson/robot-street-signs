@@ -13,11 +13,9 @@ def compare_images(img1, img2):
     """
     # normalize to compensate for exposure difference, this may be unnecessary
     # consider disabling it
-    img1 = normalize(img1)
-    img2 = normalize(img2)
     # calculate the difference and its norms
     diff = img1 - img2  # elementwise for scipy arrays
-    z_norm = norm(diff.ravel(), 0)  # Zero norm
+    z_norm = norm(diff.ravel(), 1)  # Zero norm
     return z_norm
 
 
@@ -55,13 +53,13 @@ class TemplateMatcher(object):
             self.signs[k] = cv2.imread(filename,0)
             self.kps[k], self.descs[k] = self.sift.detectAndCompute(self.signs[k],None)
 
-    def predict(self, img):
+    def predict_debug(self, img):
         """
         Uses gather predictions to get visual diffs of the image to each template
         returns a dictionary, keys being signs, values being confidences
         """
         visual_diff = self._gather_predictions(img)
-        
+
         # inverse - higher confidences for smaller visual differences
         if visual_diff:
             for k in visual_diff:
@@ -73,7 +71,28 @@ class TemplateMatcher(object):
                 visual_diff[k] /= total
         else:
             visual_diff = {k: 0 for k in self.signs.keys()}
-        
+
+        return visual_diff
+
+    def predict(self, img):
+        """
+        Uses gather predictions to get visual diffs of the image to each template
+        returns a dictionary, keys being signs, values being confidences
+        """
+        visual_diff = self._gather_predictions(img)
+
+        # inverse - higher confidences for smaller visual differences
+        if visual_diff:
+            for k in visual_diff:
+                visual_diff[k] = 1.0 / visual_diff[k]
+
+            # normalize confidences to sum to one
+            total = sum(visual_diff.values())
+            for k in visual_diff:
+                visual_diff[k] /= total
+        else:
+            visual_diff = {k: 0 for k in self.signs.keys()}
+
         return visual_diff
 
     def _gather_predictions(self, img):
@@ -81,13 +100,16 @@ class TemplateMatcher(object):
         Iteratively call _compute_prediction to put together comparisons of one image with each template
         """
         visual_diff = {}
-        try:
-            kp, des = self.sift.detectAndCompute(img,None)
-            for k in self.signs.keys():
-                visual_diff[k] = self._compute_prediction(k, img, kp, des)
-        except:
-            # could not find a homography, because the cropped image is bad.
-            return None
+        # try:
+        #     kp, des = self.sift.detectAndCompute(img,None)
+        #     for k in self.signs.keys():
+        #         visual_diff[k] = self._compute_prediction(k, img, kp, des)
+        # except:
+        #     # could not find a homography, because the cropped image is bad.
+        #     return None
+        kp, des = self.sift.detectAndCompute(img,None)
+        for k in self.signs.keys():
+            visual_diff[k] = self._compute_prediction(k, img, kp, des)
 
         return visual_diff
 
@@ -110,13 +132,20 @@ class TemplateMatcher(object):
         M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, self.ransac_thresh)
         img_T = cv2.warpPerspective(img, M, self.signs[k].shape[::-1])
         visual_diff = compare_images(img_T, self.signs[k])
-        
+
         # artifacts of debugging
-        # plt.imshow(img_T)
-        # plt.title(k)
-        # plt.xlabel(visual_diff[0])
-        # plt.ylabel(visual_diff[1])
-        # plt.show()
+        f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6), sharey=True)
+        ax1.imshow(img_T, cmap='gray')
+        ax1.set_title(img_T.dtype)
+        ax2.imshow(self.signs[k], cmap='gray')
+        ax2.set_title(self.signs[k].dtype)
+        # ax3.imshow(normalize(img_T) - normalize(self.signs[k]), cmap='gray')
+        ax3.imshow((img_T) - (self.signs[k]), cmap='gray')
+        ax3.set_title("visual diff: %d" % visual_diff)
+        # plt.title("should be" + k)
+        # plt.xlabel(visual_diff)
+        # plt.ylabel(visual_diff)
+        plt.show()
         return visual_diff
 
     @staticmethod
@@ -212,14 +241,14 @@ if __name__ == '__main__':
         }
     tm = TemplateMatcher(images)
 
-    scenes = [
-        "../images/uturn_scene.jpg",
-        "../images/leftturn_scene.jpg",
-        "../images/rightturn_scene.jpg"
-    ]
-    for filename in scenes:
+    # scenes = [
+    #     "../images/uturn_scene.jpg",
+    #     "../images/leftturn_scene.jpg",
+    #     "../images/rightturn_scene.jpg"
+    # ]
+    scenes = ["/tmp/bin_img_0100.jpg", "/tmp/bin_img_0221.jpg"]
+
+    for filename in scenes[:2]:
         scene_img = cv2.imread(filename, 0)
         pred = tm.predict(scene_img)
         print pred
-        # plt.imshow(tm.img_T)
-        # plt.show()

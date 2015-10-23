@@ -50,7 +50,7 @@ class StreetSignRecognizer(object):
 
         self.use_slider = False
         self.use_mouse_hover = False
-        self.use_saver = False
+        self.use_saver = True
         self.use_predict = True
 
         self.decision_threshold = 50
@@ -127,7 +127,7 @@ class StreetSignRecognizer(object):
         pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid, pad=1)
 
         # draw bounding box rectangle
-        cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
+        # cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
 
         if self.use_predict:
             # get the bounding box crop to be processed
@@ -142,8 +142,8 @@ class StreetSignRecognizer(object):
 
         cv2.imshow('video_window', self.cv_image)
 
-        if self.use_saver:        
-            cv2.imwrite("/tmp/bin_img_{0:0>4}.jpg".format(self.saveCounter), self.cv_image)
+        if self.use_saver:
+            cv2.imwrite("/tmp/bin_img_{0:0>4}.jpg".format(self.saveCounter), cropped_sign)
             self.saveCounter += 1
 
         cv2.waitKey(5)
@@ -183,12 +183,15 @@ class StreetSignRecognizer(object):
         """ The main run loop, in this node it doesn't do anything """
         r = rospy.Rate(5)
         while not rospy.is_shutdown():
-            if sum(self.running_predictions.values()) > self.decision_threshold:
-                # find the max
-                final_pred = max(self.running_predictions.iterkeys(), key=(lambda key: self.running_predictions[key]))
-                self.pub.publish(final_pred)
+
+            sorted_preds = sorted(self.running_predictions.iterkeys(), key=(lambda key: self.running_predictions[key]), reverse=True)
+            best = sorted_preds[0]
+            second = sorted_preds[1]
+            if (sum(self.running_predictions.values()) > self.decision_threshold
+            and self.running_predictions[best] - self.running_predictions[second] > self.decision_threshold/5):
+                self.pub.publish(best)
                 self.running_predictions = {"left": 0, "right": 0, "uturn": 0}
-                
+
             r.sleep()
 
 def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
@@ -211,10 +214,10 @@ def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
     """
     gridrows, gridcols = gridsize
     m, n = img.shape
-    
+
     # initialize binary grid
     grid = np.zeros(gridsize)
-    
+
     # define the size of each grid block
     block_size = (m/gridrows, n/gridcols)
 
@@ -227,7 +230,7 @@ def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
             if block.sum() >= threshold:
                 # turn the gridblock on
                 grid[i,j] = 1
-    
+
     return grid
 
 def get_bbox_from_grid(img, grid, pad=0):
@@ -240,19 +243,19 @@ def get_bbox_from_grid(img, grid, pad=0):
         if grid[i].sum() > 0:
             top = i
             break
-    
+
     # get left
     for j in range(grid.shape[1]):
         if grid[:, j].sum() > 0:
             left = j
             break
-        
+
     # get bottom
     for i in range(grid.shape[0] - 1, -1, -1):
         if grid[i].sum() > 0:
             bottom = i
             break
-            
+
     # get right
     for j in range(grid.shape[1] - 1, -1, -1):
         if grid[:, j].sum() > 0:
@@ -278,10 +281,10 @@ def get_bbox_from_grid(img, grid, pad=0):
 
     # (x, y)
     pt1 = (img.shape[1]/grid.shape[1]*left, img.shape[0]/grid.shape[0]*top)
-    
+
     # (right+1) and (bottom+1) cuz grid only represents the left hand corner of a block
     pt2 = (img.shape[1]/grid.shape[1]*(right+1), img.shape[0]/grid.shape[0]*(bottom+1))
-    
+
     return pt1, pt2
 
 if __name__ == '__main__':
