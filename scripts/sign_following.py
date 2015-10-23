@@ -41,8 +41,6 @@ class StateMachine():
     """ Each function is a different state. """
 
     def forward(self):
-        print("The sign says: {}".format(self.data['sign']))
-
         # publish a goal 3m ahead
         self.publishGoal(3,0,0)
 
@@ -53,7 +51,6 @@ class StateMachine():
         elif self.data['sign'] == 'uturn':
             return 'uturn'
         elif self.data['sign'] == 'stop':
-            print("forward --> stop")
             return 'stop'
         else:
             return 'forward'
@@ -61,6 +58,9 @@ class StateMachine():
     def rturn(self):
         # publish a goal 1m ahead and 3m to the right
         self.publishGoal(1,-3,0)
+
+        # give some time to reach the goal
+        sleep(5)
 
         if self.data['sign'] == 'rturn':
             return 'rturn'
@@ -80,6 +80,9 @@ class StateMachine():
         # publish a goal 3m behind us
         self.publishGoal(-3,0,0)
 
+        # give some time to reach the goal
+        sleep(5)
+
         if self.data['sign'] == 'uturn':
             return 'uturn'
         else:
@@ -90,8 +93,10 @@ class StateMachine():
         # publish a goal on top of us
         self.publishGoal(0,0,0)
 
+        # give some time to reach the goal
+        sleep(5)
+
         # stay stopped forever
-        print("stop --> stop")
         return 'stop'
 
 
@@ -113,13 +118,13 @@ class StreetSignFollower(object):
     def process_sign(self, msg):
         """ Process sign predictions, use them to transition the state machine. """
 
+        print("The sign says: {}".format(msg.data))
         self.sm.data['sign'] = msg.data
 
-    @staticmethod
-    def publishGoal(x=0.0, y=0.0, z=0.0):
+    def publishGoal(self, x=0.0, y=0.0, z=0.0):
         print("Publishing goal at ({},{},{})".format(x,y,z))
 
-        """point_msg = Point(x, y, z)
+        point_msg = Point(x, y, z)
         quat_msg = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
         pose_msg = Pose(position=point_msg, orientation=quat_msg)
 
@@ -128,7 +133,7 @@ class StreetSignFollower(object):
 
         pose_stamped = PoseStamped(header=header_msg, pose=pose_msg)
 
-        self.pub.Publish(pose_stamped)"""
+        self.pub.publish(pose_stamped)
 
     def run(self):
         """ The main run loop - create a state machine, and set it off """
