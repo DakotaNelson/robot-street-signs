@@ -20,8 +20,8 @@ class StreetSignRecognizer(object):
 
     curr_dir = os.path.dirname(os.path.realpath(__file__))
     template_images = {
-        "left":  os.path.join(curr_dir, '../images/leftturn_box_small.png'),
-        "right": os.path.join(curr_dir, '../images/rightturn_box_small.png'),
+        "lturn":  os.path.join(curr_dir, '../images/leftturn_box_small.png'),
+        "rturn": os.path.join(curr_dir, '../images/rightturn_box_small.png'),
         "uturn": os.path.join(curr_dir, '../images/uturn_box_small.png')
     }
 
@@ -40,17 +40,17 @@ class StreetSignRecognizer(object):
         rospy.Subscriber(image_topic, Image, self.process_image)
         cv2.namedWindow('video_window')
 
-        self.running_predictions = {"left": 0, "right": 0, "uturn": 0}
+        self.running_predictions = {"lturn": 0, "rturn": 0, "uturn": 0}
 
         self.sign_pub_mappings = {
             "uturn": 1,
-            "left": 2,
-            "right": 3
+            "lturn": 2,
+            "rturn": 3
         }
 
         self.use_slider = False
         self.use_mouse_hover = False
-        self.use_saver = False
+        self.use_saver = True
         self.use_predict = True
 
         self.decision_threshold = 50
@@ -126,8 +126,6 @@ class StreetSignRecognizer(object):
         binaryGrid = thresh2binarygrid(self.binarized_image, gridsize=(20, 20), percentage=0.2)
         pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid, pad=1)
 
-        # draw bounding box rectangle
-        # cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
 
         if self.use_predict:
             # get the bounding box crop to be processed
@@ -140,6 +138,8 @@ class StreetSignRecognizer(object):
 
             # print self.running_predictions
 
+        # draw bounding box rectangle
+        cv2.rectangle(self.cv_image, pt1, pt2, color=(0, 0, 255), thickness=5)
         cv2.imshow('video_window', self.cv_image)
 
         if self.use_saver:
@@ -190,7 +190,7 @@ class StreetSignRecognizer(object):
             if (sum(self.running_predictions.values()) > self.decision_threshold
             and self.running_predictions[best] - self.running_predictions[second] > self.decision_threshold/5):
                 self.pub.publish(best)
-                self.running_predictions = {"left": 0, "right": 0, "uturn": 0}
+                self.running_predictions = {"lturn": 0, "rturn": 0, "uturn": 0}
 
             r.sleep()
 

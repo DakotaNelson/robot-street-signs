@@ -161,5 +161,5 @@ class StreetSignFollower(object):
         smach_thread.join()
 
 if __name__ == '__main__':
-    node = StreetSignFollower("/sign_predictions")
+    node = StreetSignFollower("/predicted_sign")
     node.run()
