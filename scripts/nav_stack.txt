@@ -4,4 +4,10 @@ roslaunch neato_simulator neato_playground.launch
 rosrun map_server map_server `rospack find neato_2dnav`/maps/playground_smaller.yaml
 roslaunch neato_2dnav amcl_builtin.launch map_file:=`rospack find neato_2dnav`/maps/playground_smaller.yaml
 
-# would really like to have hector_mapping instead of map_server to generate map dynamically
+
+# Run these on the real neato for a SLAM mapping and nav stack.
+
+roslaunch neato_node bringup.launch host:=192.168.xxx.xxx
+roslaunch neato_2dnav move_base.launch
+roslaunch neato_2dnav gmapping_demo.launch scan_topic:=/stable_scan
+roslaunch turtlebot_rviz_launchers view_navigation.launch

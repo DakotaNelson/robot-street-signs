@@ -60,7 +60,7 @@ class StateMachine():
         self.publishGoal(1,-3,0)
 
         # give some time to reach the goal
-        sleep(5)
+        sleep(15)
 
         if self.data['sign'] == 'rturn':
             return 'rturn'
@@ -70,6 +70,9 @@ class StateMachine():
     def lturn(self):
         # publish a goal 1m ahead and 3m to the left
         self.publishGoal(1,3,0)
+
+        # give some time to reach the goal
+        sleep(15)
 
         if self.data['sign'] == 'lturn':
             return 'lturn'
@@ -81,7 +84,7 @@ class StateMachine():
         self.publishGoal(-3,0,0)
 
         # give some time to reach the goal
-        sleep(5)
+        sleep(15)
 
         if self.data['sign'] == 'uturn':
             return 'uturn'
@@ -94,7 +97,7 @@ class StateMachine():
         self.publishGoal(0,0,0)
 
         # give some time to reach the goal
-        sleep(5)
+        sleep(15)
 
         # stay stopped forever
         return 'stop'
