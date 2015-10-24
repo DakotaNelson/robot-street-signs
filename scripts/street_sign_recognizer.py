@@ -127,7 +127,7 @@ class StreetSignRecognizer(object):
         pt1, pt2 = get_bbox_from_grid(self.binarized_image, binaryGrid, pad=1)
 
 
-        if self.use_predict:
+        if self.use_predict and pt1 and pt2:
             # get the bounding box crop to be processed
             cropped_sign = self.cv_image[pt1[1]:pt2[1], pt1[0]:pt2[0]]
             cropped_sign_gray = cv2.cvtColor(cropped_sign, cv2.COLOR_BGR2GRAY)
@@ -261,6 +261,10 @@ def get_bbox_from_grid(img, grid, pad=0):
         if grid[:, j].sum() > 0:
             right = j
             break
+
+    # if bbox was not found
+    if top is None or left is None or bottom is None or right is None:
+        return None, None
 
     # make bbox a little bigger
     # this will break if bounding box is taken near the ends of the image
