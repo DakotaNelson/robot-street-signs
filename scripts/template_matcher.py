@@ -14,19 +14,18 @@ def compare_images(img1, img2):
     # normalize to compensate for exposure difference, this may be unnecessary
     # consider disabling it
     # calculate the difference and its norms
-    diff = img1 - img2  # elementwise for scipy arrays
-    z_norm = norm(diff.ravel(), 1)  # Zero norm
+    diff = normalize(img1) - normalize(img2)  # elementwise for scipy arrays
+    z_norm = norm(diff.ravel(), 1)  # one norm
     return z_norm
 
 
 def normalize(arr):
     """
-    helper function from:
-    http://stackoverflow.com/questions/189943/how-can-i-quantify-difference-between-two-images
+    normalize the image array by taking (each element - mean) / standard dev
     """
-    rng = arr.max()-arr.min()
-    amin = arr.min()
-    return (arr-amin)*255/rng
+    arr_mean = arr.mean()
+    std_dev = arr.std()
+    return (arr - arr_mean) / std_dev
 
 
 class TemplateMatcher(object):
@@ -134,18 +133,20 @@ class TemplateMatcher(object):
         visual_diff = compare_images(img_T, self.signs[k])
 
         # artifacts of debugging
-        f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6), sharey=True)
-        ax1.imshow(img_T, cmap='gray')
-        ax1.set_title(img_T.dtype)
-        ax2.imshow(self.signs[k], cmap='gray')
-        ax2.set_title(self.signs[k].dtype)
-        # ax3.imshow(normalize(img_T) - normalize(self.signs[k]), cmap='gray')
-        ax3.imshow((img_T) - (self.signs[k]), cmap='gray')
-        ax3.set_title("visual diff: %d" % visual_diff)
-        # plt.title("should be" + k)
-        # plt.xlabel(visual_diff)
-        # plt.ylabel(visual_diff)
-        plt.show()
+        # f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6), sharey=True)
+        # norm_im_T = normalize(img_T)
+        # norm_sign = normalize(self.signs[k])
+        # ax1.imshow(norm_im_T, cmap='gray')
+        # ax1.set_title(img_T.dtype)
+        # ax2.imshow(norm_sign, cmap='gray')
+        # ax2.set_title(self.signs[k].dtype)
+        # # ax3.imshow(normalize(img_T) - normalize(self.signs[k]), cmap='gray')
+        # ax3.imshow(norm_im_T - norm_sign, cmap='gray')
+        # ax3.set_title("visual diff: %d" % visual_diff)
+        # # plt.title("should be" + k)
+        # # plt.xlabel(visual_diff)
+        # # plt.ylabel(visual_diff)
+        # plt.show()
         return visual_diff
 
     @staticmethod
@@ -224,31 +225,31 @@ class TemplateMatcher(object):
         # Also return the image if you'd like a copy
         return out
 
-if __name__ == '__main__':
-    # scene_img = cv2.imread('../images/bin_img_0100.jpg', 0)
-    # images = {
-    #     "left": '../images/leftturn_box_small.png',
-    #     "right": '../images/rightturn_box_small.png',
-    #     "uturn": '../images/uturn_box_small.png'
-    #     }
-    # tm = TemplateMatcher(images)
-    # pred = tm.predict(scene_img)
-    # print pred
-    images = {
-        "left": '../images/leftturn_box_small.png',
-        "right": '../images/rightturn_box_small.png',
-        "uturn": '../images/uturn_box_small.png'
-        }
-    tm = TemplateMatcher(images)
-
-    # scenes = [
-    #     "../images/uturn_scene.jpg",
-    #     "../images/leftturn_scene.jpg",
-    #     "../images/rightturn_scene.jpg"
-    # ]
-    scenes = ["/tmp/bin_img_0100.jpg", "/tmp/bin_img_0221.jpg"]
-
-    for filename in scenes[:2]:
-        scene_img = cv2.imread(filename, 0)
-        pred = tm.predict(scene_img)
-        print pred
+# if __name__ == '__main__':
+#     # scene_img = cv2.imread('../images/bin_img_0100.jpg', 0)
+#     # images = {
+#     #     "left": '../images/leftturn_box_small.png',
+#     #     "right": '../images/rightturn_box_small.png',
+#     #     "uturn": '../images/uturn_box_small.png'
+#     #     }
+#     # tm = TemplateMatcher(images)
+#     # pred = tm.predict(scene_img)
+#     # print pred
+#     images = {
+#         "left": '../images/leftturn_box_small.png',
+#         "right": '../images/rightturn_box_small.png',
+#         "uturn": '../images/uturn_box_small.png'
+#         }
+#     tm = TemplateMatcher(images)
+#
+#     # scenes = [
+#     #     "../images/uturn_scene.jpg",
+#     #     "../images/leftturn_scene.jpg",
+#     #     "../images/rightturn_scene.jpg"
+#     # ]
+#     scenes = ["/tmp/bin_img_1219.jpg"]
+#
+#     for filename in scenes[:2]:
+#         scene_img = cv2.imread(filename, 0)
+#         pred = tm.predict(scene_img)
+#         print pred

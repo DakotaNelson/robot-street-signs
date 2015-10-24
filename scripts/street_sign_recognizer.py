@@ -50,7 +50,7 @@ class StreetSignRecognizer(object):
 
         self.use_slider = False
         self.use_mouse_hover = False
-        self.use_saver = True
+        self.use_saver = False
         self.use_predict = True
 
         self.decision_threshold = 50
