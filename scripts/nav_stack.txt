@@ -1,0 +1,13 @@
+# Run these commands to get a simulator spun up with the Neato running a full nav stack.
+
+roslaunch neato_simulator neato_playground.launch
+rosrun map_server map_server `rospack find neato_2dnav`/maps/playground_smaller.yaml
+roslaunch neato_2dnav amcl_builtin.launch map_file:=`rospack find neato_2dnav`/maps/playground_smaller.yaml
+
+
+# Run these on the real neato for a SLAM mapping and nav stack.
+
+roslaunch neato_node bringup.launch host:=192.168.xxx.xxx
+roslaunch neato_2dnav move_base.launch
+roslaunch neato_2dnav gmapping_demo.launch scan_topic:=/stable_scan
+roslaunch turtlebot_rviz_launchers view_navigation.launch
