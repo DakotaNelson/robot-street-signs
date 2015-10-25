@@ -5,7 +5,7 @@
 
 from geometry_msgs.msg import PoseStamped, Pose, Quaternion, Point
 from std_msgs.msg import Header
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from time import sleep
 import threading
 import smach
@@ -20,6 +20,7 @@ class StateMachine():
         self.res = 'forward'
         self.data = data
         self.publishGoal = publisher
+        self.imSleeping = rospy.Publisher("/imSleeping", Bool, queue_size=1)
         self.end = False
 
         # if a function returns [this string], execute [this function]
@@ -37,6 +38,14 @@ class StateMachine():
             self.res = res
             # the robot should 'latch' slightly once it's made a decision
             sleep(.5)
+
+    def reset(self):
+        self.data['sign'] = None
+
+    def sleep(self):
+        self.imSleeping.publish(True)
+        sleep(15)
+        self.imSleeping.publish(False)
 
     """ Each function is a different state. """
 
@@ -57,26 +66,30 @@ class StateMachine():
 
     def rturn(self):
         # publish a goal 1m ahead and 3m to the right
-        self.publishGoal(1,-3,0)
+        self.publishGoal(2,-3,0)
 
         # give some time to reach the goal
-        sleep(15)
+        self.sleep()
 
         if self.data['sign'] == 'rturn':
+            self.reset()
             return 'rturn'
         else:
+            self.reset()
             return 'forward'
 
     def lturn(self):
         # publish a goal 1m ahead and 3m to the left
-        self.publishGoal(1,3,0)
+        self.publishGoal(2,3,0)
 
         # give some time to reach the goal
-        sleep(15)
+        self.sleep()
 
         if self.data['sign'] == 'lturn':
+            self.reset()
             return 'lturn'
         else:
+            self.reset()
             return 'forward'
 
     def uturn(self):
@@ -84,11 +97,13 @@ class StateMachine():
         self.publishGoal(-3,0,0)
 
         # give some time to reach the goal
-        sleep(15)
+        self.sleep()
 
         if self.data['sign'] == 'uturn':
+            self.reset()
             return 'uturn'
         else:
+            self.reset()
             return 'forward'
 
     def stop(self):
@@ -97,11 +112,10 @@ class StateMachine():
         self.publishGoal(0,0,0)
 
         # give some time to reach the goal
-        sleep(15)
+        self.sleep()
 
         # stay stopped forever
         return 'stop'
-
 
 ###### Node Class ######
 

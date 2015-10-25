@@ -6,7 +6,7 @@
 import rospy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 import cv2
 import numpy as np
 import os
@@ -25,7 +25,7 @@ class StreetSignRecognizer(object):
         "uturn": os.path.join(curr_dir, '../images/uturn_box_small.png')
     }
 
-    def __init__(self, image_topic):
+    def __init__(self, image_topic, sleep_topic):
         """ Initialize the street sign reocgnizer """
         rospy.init_node('street_sign_recognizer')
         self.cv_image = None                        # the latest image from the camera
@@ -37,8 +37,9 @@ class StreetSignRecognizer(object):
         self.template_matcher = TemplateMatcher(self.template_images)
 
         self.pub = rospy.Publisher('predicted_sign', String, queue_size=1)
-        rospy.Subscriber(image_topic, Image, self.process_image)
         cv2.namedWindow('video_window')
+
+        self.sleeping = False
 
         self.running_predictions = {"lturn": 0, "rturn": 0, "uturn": 0}
 
@@ -50,10 +51,10 @@ class StreetSignRecognizer(object):
 
         self.use_slider = False
         self.use_mouse_hover = False
-        self.use_saver = True
+        self.use_saver = False
         self.use_predict = True
 
-        self.decision_threshold = 50
+        self.decision_threshold = 35
 
         # # # # # # # # # # # # #
         # color params, in HSV  #
@@ -88,6 +89,9 @@ class StreetSignRecognizer(object):
             cv2.createTrackbar('S ub', 'threshold_image', 0, 255, self.set_s_ub)
             cv2.createTrackbar('V ub', 'threshold_image', 0, 255, self.set_v_ub)
 
+        rospy.Subscriber(image_topic, Image, self.process_image)
+        rospy.Subscriber(sleep_topic, Bool, self.process_sleep)
+
     # # # # # # # # # #
     # color callbacks #
     # # # # # # # # # #
@@ -109,6 +113,9 @@ class StreetSignRecognizer(object):
 
     def set_v_ub(self, val):
         self.hsv_ub[2] = val
+
+    def process_sleep(self, msg):
+        self.sleeping = msg
 
     def process_image(self, msg):
         """ Process image messages from ROS and stash them in an attribute
@@ -183,16 +190,19 @@ class StreetSignRecognizer(object):
         """ The main run loop, in this node it doesn't do anything """
         r = rospy.Rate(5)
         while not rospy.is_shutdown():
-
-            sorted_preds = sorted(self.running_predictions.iterkeys(), key=(lambda key: self.running_predictions[key]), reverse=True)
-            best = sorted_preds[0]
-            second = sorted_preds[1]
-            if (sum(self.running_predictions.values()) > self.decision_threshold
-            and self.running_predictions[best] - self.running_predictions[second] > self.decision_threshold/5):
-                self.pub.publish(best)
+            if not self.sleeping:
+                sorted_preds = sorted(self.running_predictions.iterkeys(), key=(lambda key: self.running_predictions[key]), reverse=True)
+                best = sorted_preds[0]
+                second = sorted_preds[1]
+                if (sum(self.running_predictions.values()) > self.decision_threshold
+                and self.running_predictions[best] - self.running_predictions[second] > self.decision_threshold/5):
+                    self.pub.publish(best)
+                    self.running_predictions = {"lturn": 0, "rturn": 0, "uturn": 0}
+            else:
                 self.running_predictions = {"lturn": 0, "rturn": 0, "uturn": 0}
 
             r.sleep()
+
 
 def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
     """ Takes a thresholded image (i.e. from a cv2.inRange operation), divides
@@ -236,7 +246,7 @@ def thresh2binarygrid(img, gridsize=(10,10), percentage=0.20):
 def get_bbox_from_grid(img, grid, pad=0):
     """ Gets a bounding box in the form of (pt1, pt2), pairs of (x,y)
     coordinates the define the lefttop and rightbottom of the bounding rectangle """
-
+    top, left, bottom, right = (None, ) * 4
 
     # get top
     for i in range(grid.shape[0]):
@@ -292,5 +302,5 @@ def get_bbox_from_grid(img, grid, pad=0):
     return pt1, pt2
 
 if __name__ == '__main__':
-    node = StreetSignRecognizer("/camera/image_raw")
+    node = StreetSignRecognizer("/camera/image_raw","/imSleeping")
     node.run()
