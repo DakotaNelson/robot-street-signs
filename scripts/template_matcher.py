@@ -99,16 +99,16 @@ class TemplateMatcher(object):
         Iteratively call _compute_prediction to put together comparisons of one image with each template
         """
         visual_diff = {}
-        # try:
-        #     kp, des = self.sift.detectAndCompute(img,None)
-        #     for k in self.signs.keys():
-        #         visual_diff[k] = self._compute_prediction(k, img, kp, des)
-        # except:
-        #     # could not find a homography, because the cropped image is bad.
-        #     return None
-        kp, des = self.sift.detectAndCompute(img,None)
-        for k in self.signs.keys():
-            visual_diff[k] = self._compute_prediction(k, img, kp, des)
+        try:
+            kp, des = self.sift.detectAndCompute(img,None)
+            for k in self.signs.keys():
+                visual_diff[k] = self._compute_prediction(k, img, kp, des)
+        except:
+            # could not find a homography, because the cropped image is bad.
+            return None
+        # kp, des = self.sift.detectAndCompute(img,None)
+        # for k in self.signs.keys():
+        #     visual_diff[k] = self._compute_prediction(k, img, kp, des)
 
         return visual_diff
 

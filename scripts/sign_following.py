@@ -11,111 +11,99 @@ import threading
 import smach
 import smach_ros
 import rospy
+import tf
+import numpy as np
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+
+def convert_translation_rotation_to_pose(translation, rotation):
+    """ Convert from representation of a pose as translation and rotation (Quaternion) tuples to a geometry_msgs/Pose message """
+    return Pose(position=Point(x=translation[0],y=translation[1],z=translation[2]), orientation=Quaternion(x=rotation[0],y=rotation[1],z=rotation[2],w=rotation[3]))
+
+def convert_pose_to_xy_and_theta(pose):
+    """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
+    orientation_tuple = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
+    angles = euler_from_quaternion(orientation_tuple)
+    return (pose.position.x, pose.position.y, angles[2])
 
 ###### State Machine States ######
 
 class StateMachine():
-    def __init__(self, publisher, data={}):
+    def __init__(self, publisher):
         # state initialization goes here
-        self.res = 'forward'
-        self.data = data
         self.publishGoal = publisher
         self.imSleeping = rospy.Publisher("/imSleeping", Bool, queue_size=1)
         self.end = False
-
-        # if a function returns [this string], execute [this function]
-        self.transitions = {
-                  'rturn': self.rturn,
-                  'lturn': self.lturn,
-                  'uturn': self.uturn,
-                  'forward': self.forward,
-                  'stop': self.stop
-                }
+        delta_x = 2.5
+        delta_y = 1.5
+        self.theta = 0
+        self.nodes = {
+            'start' : (0,0,0),
+            'inter' : (delta_x,0,0),
+            'left' : (delta_x, delta_y, 0),
+            'right' : (delta_x, -delta_y, 0)
+        }
+        # start, left, right, intersection
+        self.last_node = 'start'
+        self.curr_dest = 'inter'
 
     def run(self):
         while not self.end:
-            res = self.transitions[self.res]()
-            self.res = res
-            # the robot should 'latch' slightly once it's made a decision
+            self.go_robot()
             sleep(.5)
 
     def reset(self):
         self.data['sign'] = None
 
-    def sleep(self):
+    def sleep(self, time):
         self.imSleeping.publish(True)
-        sleep(15)
+        sleep(time)
         self.imSleeping.publish(False)
 
-    """ Each function is a different state. """
+    def calc_transition(self, sign):
+        """
+        Determine next destination based off of current destination, previous location
+        and the last seen sign
+        """
+        if sign == 'uturn':
+            tmp = self.last_node
+            self.last_node = self.curr_dest
+            self.curr_dest = tmp
+            self.theta = -self.theta
+        elif sign == 'rturn':
+            if self.curr_dest == 'inter':
+                if self.last_node == 'start':
+                    self.last_node = self.curr_dest
+                    self.curr_dest = 'right'
+                    self.theta = -np.pi/2
+                elif self.last_node == 'left':
+                    self.last_node = self.curr_dest
+                    self.curr_dest = 'start'
+                    self.theta = np.pi
+            else:
+                # invalid turn in our set up
+                print "Invalid turn"
+        elif sign == 'lturn':
+            if self.curr_dest == 'inter':
+                if self.last_node == 'start':
+                    self.last_node = self.curr_dest
+                    self.curr_dest = 'left'
+                    self.theta = np.pi/2
+                elif self.last_node == 'right':
+                    self.last_node = self.curr_dest
+                    self.curr_dest = 'start'
+                    self.theta = np.pi
+            else:
+                # invalid turn in our set up
+                print "Invalid turn"
+        self.go_robot()
+        self.sleep(3)
 
-    def forward(self):
-        # publish a goal 3m ahead
-        self.publishGoal(3,0,0)
+    def go_robot(self):
+        """
+        Publish a goal to the current destination
+        """
+        self.publishGoal(self.nodes[self.curr_dest], self.theta)
 
-        if self.data['sign'] and self.data['sign'] == 'rturn':
-            return 'rturn'
-        elif self.data['sign'] == 'lturn':
-            return 'lturn'
-        elif self.data['sign'] == 'uturn':
-            return 'uturn'
-        elif self.data['sign'] == 'stop':
-            return 'stop'
-        else:
-            return 'forward'
-
-    def rturn(self):
-        # publish a goal 1m ahead and 3m to the right
-        self.publishGoal(2,-3,0)
-
-        # give some time to reach the goal
-        self.sleep()
-
-        if self.data['sign'] == 'rturn':
-            self.reset()
-            return 'rturn'
-        else:
-            self.reset()
-            return 'forward'
-
-    def lturn(self):
-        # publish a goal 1m ahead and 3m to the left
-        self.publishGoal(2,3,0)
-
-        # give some time to reach the goal
-        self.sleep()
-
-        if self.data['sign'] == 'lturn':
-            self.reset()
-            return 'lturn'
-        else:
-            self.reset()
-            return 'forward'
-
-    def uturn(self):
-        # publish a goal 3m behind us
-        self.publishGoal(-3,0,0)
-
-        # give some time to reach the goal
-        self.sleep()
-
-        if self.data['sign'] == 'uturn':
-            self.reset()
-            return 'uturn'
-        else:
-            self.reset()
-            return 'forward'
-
-    def stop(self):
-        # stop the robbit
-        # publish a goal on top of us
-        self.publishGoal(0,0,0)
-
-        # give some time to reach the goal
-        self.sleep()
-
-        # stay stopped forever
-        return 'stop'
 
 ###### Node Class ######
 
@@ -127,28 +115,51 @@ class StreetSignFollower(object):
         """ Initialize the state machine """
 
         rospy.init_node('sign_follower')
-
         self.pub = rospy.Publisher("/move_base_simple/goal", PoseStamped, queue_size=1)
 
+        listener = tf.TransformListener()
+        listener.waitForTransform('/map', 'base_link', rospy.Time(), rospy.Duration(3.0))
+        (initial_trans, initial_rot) = listener.lookupTransform('/map', '/base_link', rospy.Time())
+        self.init_x, self.init_y, self.init_th = convert_pose_to_xy_and_theta(convert_translation_rotation_to_pose(initial_trans, initial_rot))
+        print self.init_x, self.init_y, self.init_th
         rospy.Subscriber(sign_topic, String, self.process_sign)
 
     def process_sign(self, msg):
         """ Process sign predictions, use them to transition the state machine. """
 
         print("The sign says: {}".format(msg.data))
-        self.sm.data['sign'] = msg.data
+        # self.sm.data['sign'] = msg.data
+        self.sm.calc_transition(msg.data)
 
-    def publishGoal(self, x=0.0, y=0.0, z=0.0):
-        print("Publishing goal at ({},{},{})".format(x,y,z))
+    def publishGoal(self, pos_tup=(0.0,0.0,0.0), th=0.0):
+        x, y, z = pos_tup
+        print("Publishing goal at ({},{},{},{})".format(x,y,z,th))
 
-        point_msg = Point(x, y, z)
-        quat_msg = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+        final_x = (
+            self.init_x +
+            x * np.cos(self.init_th) +
+            y * np.cos(self.init_th + np.pi / 2)
+        )
+        final_y = (
+            self.init_y +
+            x * np.sin(self.init_th) +
+            y * np.sin(self.init_th + np.pi / 2)
+        )
+        final_th = self.init_th + th
+
+        point_msg = Point(final_x, final_y, z)
+
+        # change later using theta
+        quat_msg = Quaternion(*quaternion_from_euler(0,0,final_th))
         pose_msg = Pose(position=point_msg, orientation=quat_msg)
 
+
         header_msg = Header(stamp=rospy.Time.now(),
-                                    frame_id='base_link')
+                                    frame_id='map')
 
         pose_stamped = PoseStamped(header=header_msg, pose=pose_msg)
+
+        # print pose_stamped
 
         self.pub.publish(pose_stamped)
 
@@ -156,7 +167,7 @@ class StreetSignFollower(object):
         """ The main run loop - create a state machine, and set it off """
 
         # Create a state machine
-        self.sm = StateMachine(self.publishGoal, {'sign': None})
+        self.sm = StateMachine(self.publishGoal)
 
         # Execute the machine
         # threading required for control-C-ability

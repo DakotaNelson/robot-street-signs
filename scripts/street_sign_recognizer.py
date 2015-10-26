@@ -115,7 +115,7 @@ class StreetSignRecognizer(object):
         self.hsv_ub[2] = val
 
     def process_sleep(self, msg):
-        self.sleeping = msg
+        self.sleeping = msg.data
 
     def process_image(self, msg):
         """ Process image messages from ROS and stash them in an attribute
@@ -191,6 +191,7 @@ class StreetSignRecognizer(object):
         r = rospy.Rate(5)
         while not rospy.is_shutdown():
             if not self.sleeping:
+                print self.running_predictions
                 sorted_preds = sorted(self.running_predictions.iterkeys(), key=(lambda key: self.running_predictions[key]), reverse=True)
                 best = sorted_preds[0]
                 second = sorted_preds[1]
