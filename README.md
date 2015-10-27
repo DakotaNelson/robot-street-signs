@@ -89,4 +89,8 @@ If we were given more time, we would definitely seek to make the robot navigatio
 Additionally, we would seek to add capabilities for more signs. This would include having more template images, as well as improving upon our bounding box algorithm, for signs that are not predominately yellow.
 
 ## Lessons
-Did you learn any interesting lessons for future robotic programming projects? These could relate to working on robotics projects in teams, working on more open-ended (and longer term) problems, or any other relevant topic.
+"Pair programming" as a team of three is difficult.  As it turned out, one of our team members was unavailable (out of the state) for the biggest checkpoints in the vision timeline.  Instead, we found that putting him on writing the navigation node that listens for traffic signs was a whole lot more productive.  If it's not neccessary for another programmer to join an unfamiliar code base, then don't make them join it.  Parellizing our time and efforts was effective in the end.
+
+Start collecting real data early.  I originally thought we would have to build a traffic sign classifier out of labeled imagery from another dataset.  however, we managed without that, and instead relied exclusively on the ROS bag files of our own robot, driving up to the signs we made. Working with the images that were native to the task we would evaluate it on ensured that there was a direct mapping from our efforts to the final product.
+
+Do not over engineer! Spelling out our MVP and specification helped us realize that using highly-complicated techniques like convolutional neural networks would have not provided us with any benefits towards the MVP of recognizing and obeying yellow street left, right, and u-turn signs. Going forward, we could frame the situation to have a larger variety of signs or objects; in this case, the powerful generalization of a convolutional network could realize benefits in the final application.
