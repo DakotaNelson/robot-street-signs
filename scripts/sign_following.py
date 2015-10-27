@@ -29,10 +29,20 @@ def convert_pose_to_xy_and_theta(pose):
 
 class StateMachine():
     def __init__(self, publisher):
-        # state initialization goes here
+        """ Initialize the StateMachine 
+
+        publisher: the handler to a method that publishes way point goals
+        """
+
+        # Goal publisher for the ROS Navstack
         self.publishGoal = publisher
+
+        # Sleep publisher to communicate with the Street Sign Prediction node
         self.imSleeping = rospy.Publisher("/imSleeping", Bool, queue_size=1)
+
         self.end = False
+
+        # hand tuned way point locations for the size of the T intersection map
         delta_x = 2.5
         delta_y = 1.5
         self.theta = 0
@@ -42,19 +52,21 @@ class StateMachine():
             'left' : (delta_x, delta_y, 0),
             'right' : (delta_x, -delta_y, 0)
         }
-        # start, left, right, intersection
+
+        # Robot begins by leaving the start and heading toward the intersection
         self.last_node = 'start'
         self.curr_dest = 'inter'
 
     def run(self):
+        """ Run the StateMachine! """
         while not self.end:
             self.go_robot()
             sleep(.5)
 
-    def reset(self):
-        self.data['sign'] = None
-
     def sleep(self, time):
+        """ Publishes it is sleeping,
+            enters a sleeping state (blocking program execution),
+            and finally republishes it is not sleeping once is has finished """
         self.imSleeping.publish(True)
         sleep(time)
         self.imSleeping.publish(False)
@@ -100,7 +112,7 @@ class StateMachine():
 
     def go_robot(self):
         """
-        Publish a goal to the current destination
+        Publish a navigation goal to the current destination
         """
         self.publishGoal(self.nodes[self.curr_dest], self.theta)
 
@@ -112,29 +124,48 @@ class StreetSignFollower(object):
         listening on the street sign topic. """
 
     def __init__(self, sign_topic):
-        """ Initialize the state machine """
+        """ Initialize the StreetSignFollower 
+
+        sign_topic: str, name of the sign topic, i.e. '/predicted_sign' 
+        """
 
         rospy.init_node('sign_follower')
+
+        # move_base_simple/goal is part of the ROS Navigation Stack
         self.pub = rospy.Publisher("/move_base_simple/goal", PoseStamped, queue_size=1)
 
         listener = tf.TransformListener()
         listener.waitForTransform('/map', 'base_link', rospy.Time(), rospy.Duration(3.0))
+
+        # Find the initial start position of the robot in terms of the map frame
         (initial_trans, initial_rot) = listener.lookupTransform('/map', '/base_link', rospy.Time())
+
+        # Convert to x, y, theta for trigonometric convenience
         self.init_x, self.init_y, self.init_th = convert_pose_to_xy_and_theta(convert_translation_rotation_to_pose(initial_trans, initial_rot))
         print self.init_x, self.init_y, self.init_th
+
+        # Subscribe to predicted street sign topic 
         rospy.Subscriber(sign_topic, String, self.process_sign)
 
     def process_sign(self, msg):
         """ Process sign predictions, use them to transition the state machine. """
 
         print("The sign says: {}".format(msg.data))
-        # self.sm.data['sign'] = msg.data
+
+        # Calculate next way point based on the new predicted sign message
         self.sm.calc_transition(msg.data)
 
     def publishGoal(self, pos_tup=(0.0,0.0,0.0), th=0.0):
+        """ Converts the way point position tuple and theta angle in terms
+        of the map frame, and publishes a Pose to the ROS goal navigation topic
+
+        pos_tup: a tuple of x, y, z position values
+        th: theta or yaw of the robot
+        """
         x, y, z = pos_tup
         print("Publishing goal at ({},{},{},{})".format(x,y,z,th))
 
+        # compute final x, y, theta in terms of the map
         final_x = (
             self.init_x +
             x * np.cos(self.init_th) +
@@ -148,19 +179,14 @@ class StreetSignFollower(object):
         final_th = self.init_th + th
 
         point_msg = Point(final_x, final_y, z)
-
-        # change later using theta
         quat_msg = Quaternion(*quaternion_from_euler(0,0,final_th))
         pose_msg = Pose(position=point_msg, orientation=quat_msg)
 
-
+        # in terms of the map frame!
         header_msg = Header(stamp=rospy.Time.now(),
                                     frame_id='map')
 
         pose_stamped = PoseStamped(header=header_msg, pose=pose_msg)
-
-        # print pose_stamped
-
         self.pub.publish(pose_stamped)
 
     def run(self):
