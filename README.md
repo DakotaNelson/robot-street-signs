@@ -5,7 +5,9 @@ ROS Package which enables a Neato to recognize and obey simple street signs.
 Describe how your system works.  Make sure to include the basic components and algorithms that comprise your project.
 
 ## Design
-Describe a design decision you had to make when working on your project and what you ultimately did (and why)? These design decisions could be particular choices for how you implemented some part of an algorithm or perhaps a decision regarding which of two external packages to use in your project.
+One important design decision we made during the course of the project was the method by which we identified the signs: We used SIFT to detect keypoints in both the scene and template images, matched them, and then found a homography matrix to transform the scene image. We then matched the scene image with the correct sign by looking at the similarity between the transformed scene image and the template images. The reason we chose to actually transform the images with the homography matrices is that that transformation introduces a significant amount of error between poorly matched images. This allowed us to be much more confident in our sign choice, and to quantify our confidence, as opposed to one way we explored which would have simply compared the keypoints.
+
+Another design decision we made was to use the ROS nav stack to control our robot when it approached the intersection, as opposed to manually sending it commands. While this took a significant amount of work to integrate properly, it was worthwhile because it allowed us to explore interesting and important ROS tools such as mapping, path-planning, and tf.
 
 ## Structure
 The structure of our code was largely object-oriented. Below is a class/interaction diagram that shows our code structure:
