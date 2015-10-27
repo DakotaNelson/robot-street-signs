@@ -72,9 +72,9 @@ The structure of our code was largely object-oriented. Below is a class/interact
 
 [code_structure]: images/code_structure.png "This diagram shows an overview of the code our code structure. Each box is a separate class. The solid arrows represent a sub-class instantiation, and the dotted arrows represent communcation over ROS topics. The arrows to and from the top communicate with the Neato"
 
-On the sign identification side, we have the main, StreetSignRecognizer class which receives image data. It bounds the sign and passes the bounded image to the TemplateMatcher, which does the sign identification and returns normalized confidences of each template sign to the recognizer. The recognizer cumulates these confidences until it is sure of one sign, at which point it publishes that sign the the /predicted_sign topic.
+On the sign identification side, we have the main, `StreetSignRecognizer` class which receives image data. It bounds the sign and passes the bounded image to the `TemplateMatcher`, which does the sign identification and returns normalized confidences of each template sign to the recognizer. The recognizer cumulates these confidences until it is sure of one sign, at which point it publishes that sign the the `/predicted_sign` topic.
 
-On the navigation side, we instantiate one node, StreetSignFollower, which publishes ties in with the ROS nav stack and publishes goals to /move_base_simple/goal. The goal that it publishes is determined by StateMachine, which outputs coordinates based off of the current state. Upon hearing a sign on the /predicted_sign topic, the StreetSignFollower passes it down to the StateMachine and, if a new goal is being published, tells the recognizer that it is sleeping on the /imSleeping topic -- so that the recognizer doesn't try to recognize signs while it is in the middle of turning.
+On the navigation side, we instantiate one node, `StreetSignFollower`, which publishes ties in with the ROS nav stack and publishes goals to `/move_base_simple/goal`. The goal that it publishes is determined by `StateMachine`, which outputs coordinates based off of the current state. Upon hearing a sign on the `/predicted_sign` topic, the `StreetSignFollower` passes it down to the `StateMachine` and, if a new goal is being published, tells the recognizer that it is sleeping on the `/imSleeping` topic -- so that the recognizer doesn't try to recognize signs while it is in the middle of turning.
 
 
 
@@ -89,4 +89,4 @@ If we were given more time, we would definitely seek to make the robot navigatio
 Additionally, we would seek to add capabilities for more signs. This would include having more template images, as well as improving upon our bounding box algorithm, for signs that are not predominately yellow.
 
 ## Lessons
-Did you learn any interesting lessons for future robotic programming projects? These could relate to working on robotics projects in teams, working on more open-ended (and longer term) problems, or any other relevant topic.
+We learned quite a bit about robotics project that can be applied to teams in the future. One important lesson that we learned and applied during the course of our project was the power of using rosbags to develop our program, before we integrated it with the robots. This allowed us to work on our identification algorithm away from the robots, and we only brought our work back to the robots when we were wanted to integrate the entire system, after all the separate pieces were done.
