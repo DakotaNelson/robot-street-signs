@@ -48,30 +48,14 @@ class TemplateMatcher(object):
         self.index_params = dict(algorithm = self.flann_index_kdtree, trees = self.trees)
         self.search_params = dict(checks = self.checks)
         self.flann = cv2.FlannBasedMatcher(self.index_params, self.search_params)
+
         for k, filename in images.iteritems():
+            # load template sign images as grayscale
             self.signs[k] = cv2.imread(filename,0)
+
+            # precompute keypoints and descriptors for the template sign 
             self.kps[k], self.descs[k] = self.sift.detectAndCompute(self.signs[k],None)
 
-    def predict_debug(self, img):
-        """
-        Uses gather predictions to get visual diffs of the image to each template
-        returns a dictionary, keys being signs, values being confidences
-        """
-        visual_diff = self._gather_predictions(img)
-
-        # inverse - higher confidences for smaller visual differences
-        if visual_diff:
-            for k in visual_diff:
-                visual_diff[k] = 1.0 / visual_diff[k]
-
-            # normalize confidences to sum to one
-            total = sum(visual_diff.values())
-            for k in visual_diff:
-                visual_diff[k] /= total
-        else:
-            visual_diff = {k: 0 for k in self.signs.keys()}
-
-        return visual_diff
 
     def predict(self, img):
         """
@@ -80,8 +64,8 @@ class TemplateMatcher(object):
         """
         visual_diff = self._gather_predictions(img)
 
-        # inverse - higher confidences for smaller visual differences
         if visual_diff:
+            # inverse - higher confidences for smaller visual differences
             for k in visual_diff:
                 visual_diff[k] = 1.0 / visual_diff[k]
 
@@ -89,10 +73,14 @@ class TemplateMatcher(object):
             total = sum(visual_diff.values())
             for k in visual_diff:
                 visual_diff[k] /= total
+
+        # if visual diff was not computed (bad crop, homography could not be computed)
         else:
+            # set 0 confidence for all signs
             visual_diff = {k: 0 for k in self.signs.keys()}
 
         return visual_diff
+
 
     def _gather_predictions(self, img):
         """
@@ -106,9 +94,6 @@ class TemplateMatcher(object):
         except:
             # could not find a homography, because the cropped image is bad.
             return None
-        # kp, des = self.sift.detectAndCompute(img,None)
-        # for k in self.signs.keys():
-        #     visual_diff[k] = self._compute_prediction(k, img, kp, des)
 
         return visual_diff
 
@@ -132,7 +117,10 @@ class TemplateMatcher(object):
         img_T = cv2.warpPerspective(img, M, self.signs[k].shape[::-1])
         visual_diff = compare_images(img_T, self.signs[k])
 
-        # artifacts of debugging
+        
+        # visual difference visualization and debugging
+        # uncomment the following lines in order to visualize the difference computations
+
         # f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6), sharey=True)
         # norm_im_T = normalize(img_T)
         # norm_sign = normalize(self.signs[k])
@@ -140,116 +128,33 @@ class TemplateMatcher(object):
         # ax1.set_title(img_T.dtype)
         # ax2.imshow(norm_sign, cmap='gray')
         # ax2.set_title(self.signs[k].dtype)
-        # # ax3.imshow(normalize(img_T) - normalize(self.signs[k]), cmap='gray')
+        # ax3.imshow(normalize(img_T) - normalize(self.signs[k]), cmap='gray')
         # ax3.imshow(norm_im_T - norm_sign, cmap='gray')
         # ax3.set_title("visual diff: %d" % visual_diff)
-        # # plt.title("should be" + k)
-        # # plt.xlabel(visual_diff)
-        # # plt.ylabel(visual_diff)
+        # plt.title("should be" + k)
+        # plt.xlabel(visual_diff)
+        # plt.ylabel(visual_diff)
         # plt.show()
+
         return visual_diff
 
-    @staticmethod
-    def drawMatches(img1, kp1, img2, kp2, matches, masks):
-        """
-        http://stackoverflow.com/questions/20259025/module-object-has-no-attribute-drawmatches-opencv-python
-        My own implementation of cv2.drawMatches as OpenCV 2.4.9
-        does not have this function available but it's supported in
-        OpenCV 3.0.0
 
-        This function takes in two images with their associated
-        keypoints, as well as a list of DMatch data structure (matches)
-        that contains which keypoints matched in which images.
+if __name__ == '__main__':
+    images = {
+        "left": '../images/leftturn_box_small.png',
+        "right": '../images/rightturn_box_small.png',
+        "uturn": '../images/uturn_box_small.png'
+        }
+    tm = TemplateMatcher(images)
 
-        An image will be produced where a montage is shown with
-        the first image followed by the second image beside it.
+    scenes = [
+        "../images/uturn_scene.jpg",
+        "../images/leftturn_scene.jpg",
+        "../images/rightturn_scene.jpg"
+    ]
 
-        Keypoints are delineated with circles, while lines are connected
-        between matching keypoints.
-
-        img1,img2 - Grayscale images
-        kp1,kp2 - Detected list of keypoints through any of the OpenCV keypoint
-                  detection algorithms
-        matches - A list of matches of corresponding keypoints through any
-                  OpenCV keypoint matching algorithm
-        masks - a list of which matches are inliers (1?) or outliers (0?)
-        """
-
-        # Create a new output image that concatenates the two images together
-        # (a.k.a) a montage
-        rows1 = img1.shape[0]
-        cols1 = img1.shape[1]
-        rows2 = img2.shape[0]
-        cols2 = img2.shape[1]
-
-        out = np.zeros((max([rows1,rows2]),cols1+cols2,3), dtype='uint8')
-
-        # Place the first image to the left
-        out[:rows1,:cols1] = np.dstack([img1, img1, img1])
-
-        # Place the next image to the right of it
-        out[:rows2,cols1:] = np.dstack([img2, img2, img2])
-
-        # For each pair of points we have between both images
-        # draw circles, then connect a line between them
-        for mask, mat in zip(masks,matches):
-
-            # Get the matching keypoints for each of the images
-            img1_idx = mat.queryIdx
-            img2_idx = mat.trainIdx
-
-            # x - columns
-            # y - rows
-            (x1,y1) = kp1[img1_idx].pt
-            (x2,y2) = kp2[img2_idx].pt
-
-            # Draw a small circle at both co-ordinates
-            # radius 4
-            # colour blue
-            # thickness = 1
-
-            cv2.circle(out, (int(x1),int(y1)), 4, (255*mask, 0, 255*(1-mask)), 1)
-            cv2.circle(out, (int(x2)+cols1,int(y2)), 4, (255*mask, 0, 255*(1-mask)), 1)
-
-            # Draw a line in between the two points
-            # thickness = 1
-            # colour blue
-            cv2.line(out, (int(x1),int(y1)), (int(x2)+cols1,int(y2)), (255, 0, 0), 1)
-
-
-        # Show the image
-        cv2.imshow('Matched Features', out)
-        cv2.waitKey(0)
-        cv2.destroyWindow('Matched Features')
-
-        # Also return the image if you'd like a copy
-        return out
-
-# if __name__ == '__main__':
-#     # scene_img = cv2.imread('../images/bin_img_0100.jpg', 0)
-#     # images = {
-#     #     "left": '../images/leftturn_box_small.png',
-#     #     "right": '../images/rightturn_box_small.png',
-#     #     "uturn": '../images/uturn_box_small.png'
-#     #     }
-#     # tm = TemplateMatcher(images)
-#     # pred = tm.predict(scene_img)
-#     # print pred
-#     images = {
-#         "left": '../images/leftturn_box_small.png',
-#         "right": '../images/rightturn_box_small.png',
-#         "uturn": '../images/uturn_box_small.png'
-#         }
-#     tm = TemplateMatcher(images)
-#
-#     # scenes = [
-#     #     "../images/uturn_scene.jpg",
-#     #     "../images/leftturn_scene.jpg",
-#     #     "../images/rightturn_scene.jpg"
-#     # ]
-#     scenes = ["/tmp/bin_img_1219.jpg"]
-#
-#     for filename in scenes[:2]:
-#         scene_img = cv2.imread(filename, 0)
-#         pred = tm.predict(scene_img)
-#         print pred
+    for filename in scenes[:2]:
+        scene_img = cv2.imread(filename, 0)
+        pred = tm.predict(scene_img)
+        print filename
+        print pred
