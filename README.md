@@ -26,7 +26,9 @@ There were a number of challenges that we faced in this project. One, that is in
 Another significant challenge we faced was the integration of the sign identification with the robot's navigation. We used the ROS nav stack and it's built in goal following, and found that our initial implementation of it, which published goals relative to the robot's position, caused a lot of problems. The robot would continually publish a goal ahead of it, so that if it were too close to the wall, it would publish a goal inside the wall and try to find a way inside the wall. Additionally, if we published the identified sign too early or too late, the robot would be in an non-ideal orientation and would subsequently publish it's new goal in a bad place. To solve this problem, we found a way to publish the goals directly onto the map frame, and used trigonometry to transform the goals relative to the robot's position at the time that it started navigating. 
 
 ## Improvements
-What would you do to improve your project if you had more time?
+If we were given more time, we would definitely seek to make the robot navigation more robust. Currently, the robot navigates a single T-intersection based off of preplanned points. This is fine for our purposes, because we used this project to delve more into computer vision than into robot navigation. Still, we would like to improve our navigation so that the robot could navigate between multiple intersections. Given our current code structure that uses the ROS nav stack, that would involve a much more complex state machine. Alternatively, we could explore ideas that would make the Neato behave more like a self-driving car, such as line-following for navigation.
+
+Additionally, we would seek to add capabilities for more signs. This would include having more template images, as well as improving upon our bounding box algorithm, for signs that are not predominately yellow.
 
 ## Lessons
 Did you learn any interesting lessons for future robotic programming projects? These could relate to working on robotics projects in teams, working on more open-ended (and longer term) problems, or any other relevant topic.
