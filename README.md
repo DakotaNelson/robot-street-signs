@@ -89,6 +89,9 @@ If we were given more time, we would definitely seek to make the robot navigatio
 Additionally, we would seek to add capabilities for more signs. This would include having more template images, as well as improving upon our bounding box algorithm, for signs that are not predominately yellow.
 
 ## Lessons
+
+We learned quite a bit about robotics project that can be applied to teams in the future. One important lesson that we learned and applied during the course of our project was the power of using rosbags to develop our program, before we integrated it with the robots. This allowed us to work on our identification algorithm away from the robots, and we only brought our work back to the robots when we were wanted to integrate the entire system, after all the separate pieces were done
+
 "Pair programming" as a team of three is difficult.  As it turned out, one of our team members was unavailable (out of the state) for the biggest checkpoints in the vision timeline.  Instead, we found that putting him on writing the navigation node that listens for traffic signs was a whole lot more productive.  If it's not neccessary for another programmer to join an unfamiliar code base, then don't make them join it.  Parellizing our time and efforts was effective in the end.
 
 Start collecting real data early.  I originally thought we would have to build a traffic sign classifier out of labeled imagery from another dataset.  however, we managed without that, and instead relied exclusively on the ROS bag files of our own robot, driving up to the signs we made. Working with the images that were native to the task we would evaluate it on ensured that there was a direct mapping from our efforts to the final product.
