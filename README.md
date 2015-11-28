@@ -97,3 +97,34 @@ We learned quite a bit about robotics project that can be applied to teams in th
 Start collecting real data early.  I originally thought we would have to build a traffic sign classifier out of labeled imagery from another dataset.  however, we managed without that, and instead relied exclusively on the ROS bag files of our own robot, driving up to the signs we made. Working with the images that were native to the task we would evaluate it on ensured that there was a direct mapping from our efforts to the final product.
 
 Do not over engineer! Spelling out our MVP and specification helped us realize that using highly-complicated techniques like convolutional neural networks would have not provided us with any benefits towards the MVP of recognizing and obeying yellow street left, right, and u-turn signs. Going forward, we could frame the situation to have a larger variety of signs or objects; in this case, the powerful generalization of a convolutional network could realize benefits in the final application.
+
+##Testimonials and Feedback
+We reserve this section for our friends, family, and professors who had great things to say about this project.
+
+
+###Paul Ruvolo's comments
+Our professor for the Computational Robotics class provided the following feedback about code functionality, documentation, style as well as our writeup (this README)
+ 
+> ###Functionality
+> I just can't say enough good stuff about this project!  This project is definitely in the top handful of projects I've seen in the two times I've taught CompRobo (even including final projects from the first iteration).
+ 
+> More than the end result, I was really impressed with the process that you engaged in to reach the end result.  It seems like every time I talked to you guys, you had tried more approaches, generated more visualizations, and gained more insight into the problem of sign detection.  What was clear is that through these various methods that your team tried you were consistently learning more about computer vision.  In short, this is exactly the type of exploration that I think makes project-based learning so compelling.
+ 
+> I know that Dakota wasn't there for some of the project, but boy was I surprised when he was able to come in and get the SLAM + ```move_base``` working so well!  I saw you in the computer lab working on this for quite a while, so I know it was a lot of work.
+ 
+> Again, this is just such a fantastic project.  I also like that it is well-documented so that I can show it off as an example in the future!
+ 
+> ###Documentation
+> Great use of docstrings + inline comments.  The small nit is that there is some variety between the formats / styles used in the docstrings and inline comments.  Standardizing this would make things even a little nicer.
+ 
+> ###Style
+ 
+> Nice object-oriented design.  I also like the architecture chosen for the state controller in the ```signFollower``` code.
+
+> ###Writeup
+ 
+> Very insightful writeup.  I definitely like the ideas around avoiding over-engineering.  It is often tempting to break out the heavy artillery (CNNs), but as you all stated it is unclear if that would have had any advantage over the system you developed (in fact I could see it actually being worse).
+ 
+> I'm also glad that you took the idea of collecting data early to heart.  It is clear that this paid off in the long run as you were able to leverage this data to quickly validate or discard approaches depending on how they worked on data that was representative of the actual problem setting (rather than just a proxy such as some external database of signs).
+ 
+> I like the suggested areas for follow up.  One thing I would love to know how to do is get the local planner in the ```move_base``` stack to more agressivel prune out local obstacles.  From watching the video I see the same problem that I ran into using move_base which is that you get all of these random little obstacle blobs that show up in tha map and obstruct the robot even though they don't correspond to actual obstacles.
